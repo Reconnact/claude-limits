@@ -1,0 +1,34 @@
+#!/bin/bash
+# Called by the Claude Code status line with its JSON on stdin.
+ME="$(id -un)"
+DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
+FILE="$DIR/$ME.js"
+
+LAST="$(tail -1 "$FILE" 2>/dev/null)"
+LAST="${LAST#S.push(}"
+LAST="${LAST%);}"
+
+{ IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg source "$ME" '
+  # resets_at moves by a few seconds between responses, a new window by hours
+  def newer($cur; $last):
+    $cur != null and (
+      $last == null
+      or $cur.resets_at > $last.resets_at + 60
+      or (($cur.resets_at - $last.resets_at | fabs) <= 60 and $cur.used_percentage > $last.used_percentage)
+    );
+  def shown: if . == null then "-" else (.used_percentage | round | tostring) end;
+
+  (try ($last | fromjson) catch null | if type == "object" then . else null end) as $l
+  | .rate_limits
+  | select(.five_hour != null or .seven_day != null)
+  | (if newer(.five_hour; $l.five_hour) or newer(.seven_day; $l.seven_day)
+     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} | tojson));"
+     else "" end),
+    "\(.five_hour | shown)\t\(.seven_day | shown)"
+' 2>/dev/null)
+
+if [ -n "$LINE" ]; then
+  [ -d "$DIR" ] || { mkdir -p "$DIR" && chmod 1777 "$DIR"; }
+  printf '%s\n' "$LINE" >> "$FILE"
+fi
+printf '%s' "$SHOWN"
