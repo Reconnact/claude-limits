@@ -148,7 +148,7 @@ A missing file or key, or a value not in the list, takes the default. With no ic
 { "five_hour": { "used_percentage": 24, "resets_at": 1790809200 }, "seven_day": { … }, "fable": { … }, "ts": 1790797815, "age": 42 }
 ```
 
-A limit past its reset is `0` with `resets_at` null, one never recorded is null; `ts` is the last check, `age` its seconds. `now --fresh` asks the usage endpoint first, for a machine whose status line has not run. These keys stay.
+A limit past its reset is `0` with `resets_at` null, one never recorded is null; `ts` is the last check, `age` its seconds. `now --fresh` asks the usage endpoint first, for a machine whose status line has not run.
 
 ## Updates
 
