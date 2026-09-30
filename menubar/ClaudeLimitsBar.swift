@@ -317,6 +317,7 @@ struct SettingsView: View {
 final class Bar: NSObject {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let popover = NSPopover()
+    let panel = NSViewController()
     let store = Store()
     var lastRefresh = 0.0
 
@@ -342,10 +343,14 @@ final class Bar: NSObject {
     override init() {
         super.init()
         popover.behavior = .transient
+        // the spring grows the panel from a dot over half a second
+        popover.animates = false
+        popover.contentViewController = panel
         // transient alone misses some clicks in other apps
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.popover.performClose(nil) }
         item.button?.target = self
         item.button?.action = #selector(toggle)
+        item.button?.sendAction(on: .leftMouseDown)
         item.button?.imagePosition = .imageLeading
         store.changed = { [weak self] in self?.refresh(); self?.applySettings() }
         refresh()
@@ -379,6 +384,11 @@ final class Bar: NSObject {
         var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)]
         if let color { attributes[.foregroundColor] = color }
         item.button?.attributedTitle = NSAttributedString(string: text, attributes: attributes)
+        // built here, not on the click, so the panel opens without the work
+        if !popover.isShown {
+            panel.view = content()
+            panel.preferredContentSize = panel.view.fittingSize
+        }
     }
 
     // per window, not NSApp.appearance, so the menu bar item keeps the menu bar's look
@@ -435,13 +445,9 @@ final class Bar: NSObject {
     @objc func toggle() {
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil); return }
-        let controller = NSViewController()
-        controller.view = content()
-        controller.preferredContentSize = controller.view.fittingSize
-        popover.contentViewController = controller
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        controller.view.window?.styleMask.insert(.nonactivatingPanel)
-        controller.view.window?.makeKey()
+        panel.view.window?.styleMask.insert(.nonactivatingPanel)
+        panel.view.window?.makeKey()
         refresh()
     }
 
