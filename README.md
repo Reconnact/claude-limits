@@ -46,7 +46,7 @@ Reload for fresh numbers.
 
 ## The menu bar
 
-Shows the 5-hour percentage from the newest snapshot of any account; a click opens the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account; a click opens the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ## How it works
 

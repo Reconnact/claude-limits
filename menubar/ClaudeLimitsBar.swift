@@ -63,10 +63,7 @@ final class Bar: NSObject {
     }
 
     func refresh() {
-        let pct = percent(now: Date().timeIntervalSince1970)
-        item.button?.image = pie(pct)
-        item.button?.imagePosition = .imageLeading
-        item.button?.title = title(pct)
+        item.button?.image = pie(percent(now: Date().timeIntervalSince1970))
     }
 
     @objc func open() { NSWorkspace.shared.open(page) }
