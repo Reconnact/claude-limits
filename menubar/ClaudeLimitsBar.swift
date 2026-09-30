@@ -347,8 +347,9 @@ final class Bar: NSObject {
         item.button?.target = self
         item.button?.action = #selector(toggle)
         item.button?.imagePosition = .imageLeading
-        store.changed = { [weak self] in self?.refresh() }
+        store.changed = { [weak self] in self?.refresh(); self?.applySettings() }
         refresh()
+        applySettings()
         // the settings file is tiny, so reading it every second is cheaper than watching both the file and its folder
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -370,6 +371,16 @@ final class Bar: NSObject {
         var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)]
         if let color { attributes[.foregroundColor] = color }
         item.button?.attributedTitle = NSAttributedString(string: text, attributes: attributes)
+    }
+
+    // per window, not NSApp.appearance, so the menu bar item keeps the menu bar's look
+    func applySettings() {
+        let s = store.settings
+        let appearance = s.theme == "light" ? NSAppearance(named: .aqua) : s.theme == "dark" ? NSAppearance(named: .darkAqua) : nil
+        popover.appearance = appearance
+        settingsWindow.appearance = appearance
+        pageWindow.appearance = appearance
+        if pageWindow.isVisible, (pageWindow.contentView as? WKWebView)?.url != pageURL { loadPage() }
     }
 
     func content() -> NSView {
@@ -426,15 +437,23 @@ final class Bar: NSObject {
         refresh()
     }
 
+    // the page cannot read ~/.config, so the settings come along as ?reset=, ?line= and ?theme=
+    var pageURL: URL {
+        URL(string: "?reset=\(store.settings.resetFormat)&line=\(store.settings.chartLine)&theme=\(store.settings.theme)", relativeTo: page)!.absoluteURL
+    }
+
     // the page loads the data files from /Users/Shared as scripts, outside the repo
-    @objc func open() {
-        popover.performClose(nil)
-        // the page cannot read ~/.config, so the settings come along as ?reset=, ?line= and ?theme=
-        let url = URL(string: "?reset=\(store.settings.resetFormat)&line=\(store.settings.chartLine)&theme=\(store.settings.theme)", relativeTo: page)!.absoluteURL
+    func loadPage() {
+        let url = pageURL
         // the reused web view would serve the data scripts from its memory cache, even after they changed
         WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeMemoryCache], modifiedSince: .distantPast) {
             (self.pageWindow.contentView as? WKWebView)?.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
         }
+    }
+
+    @objc func open() {
+        popover.performClose(nil)
+        loadPage()
         if !pageWindow.isVisible {
             pageWindow.setContentSize(NSSize(width: 900, height: 700))
             pageWindow.center()
