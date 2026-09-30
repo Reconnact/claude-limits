@@ -115,12 +115,11 @@ final class Bar: NSObject {
     let popover = NSPopover()
 
     lazy var pageWindow: NSWindow = {
-        let window = PageWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+        let window = PageWindow(contentRect: .zero,
                                 styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "claude-limits"
         window.contentView = WKWebView()
         window.isReleasedWhenClosed = false
-        window.center()
         return window
     }()
 
@@ -194,6 +193,10 @@ final class Bar: NSObject {
     @objc func open() {
         popover.performClose(nil)
         (pageWindow.contentView as? WKWebView)?.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        if !pageWindow.isVisible {
+            pageWindow.setContentSize(NSSize(width: 900, height: 700))
+            pageWindow.center()
+        }
         NSApp.activate(ignoringOtherApps: true)
         pageWindow.makeKeyAndOrderFront(nil)
     }
