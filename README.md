@@ -45,7 +45,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
 
-Reload for fresh numbers.
+The page reloads itself every minute.
 
 ## The menu bar
 

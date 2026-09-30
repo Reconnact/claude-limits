@@ -129,4 +129,6 @@ load(`${DIR}/sources.js`, () => {
   if (!left) draw();
   for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });
 });
+// a script added again with the same src comes from the cache, a reload reads the file
+setTimeout(() => location.reload(), 60 * 1000);
 </script>
