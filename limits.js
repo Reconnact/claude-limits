@@ -93,7 +93,7 @@
     for (const key of KEYS) {
       const el = doc.getElementById(key), w = c[key];
       el.querySelector('.pct').textContent = w ? `${Math.round(w.pct)} %` : '–';
-      el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset' : `resets in ${until(w.resets_at, now)}`;
+      el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset' : `resets in ${until(w.resets_at, now).replace(/ /g, '\u00a0')}`;
       el.querySelector('.bar i').style.width = `${w ? Math.min(w.pct, 100) : 0}%`;
       el.classList.toggle('warn', !!w && w.pct >= 80);
     }
@@ -105,17 +105,24 @@
     }
 
     const labels = doc.getElementById('days');
-    const midnight = new Date(now * 1000);
-    midnight.setHours(0, 0, 0, 0);
     const span = (now - from) / DAY;
-    const every = Math.ceil(span / 7);
-    const format = span <= 7 ? ['en', { weekday: 'short' }] : ['en-GB', { day: 'numeric', month: 'short' }];
-    for (let t = midnight / 1000, i = 0; t > from; t -= DAY, i++) {
+    // a day or less gets hour ticks, anything longer day ticks
+    const hours = span <= 0.25 ? 1 : span <= 1 ? 3 : 0;
+    const first = new Date(now * 1000);
+    if (hours) first.setHours(first.getHours() - first.getHours() % hours, 0, 0, 0);
+    else first.setHours(0, 0, 0, 0);
+    const step = hours ? hours * 3600 : DAY;
+    const every = hours ? 1 : Math.ceil(span / 7);
+    const format = hours ? t => t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      : span <= 7 ? t => t.toLocaleDateString('en', { weekday: 'short' })
+      : t => t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    labels.replaceChildren();
+    for (let t = first / 1000, i = 0; t > from; t -= step, i++) {
       const left = (t - from) / (now - from) * 100;
-      if (i % every || left > 94) continue;
+      if (i % every || left > 90) continue;
       const label = doc.createElement('span');
       label.style.left = `${left}%`;
-      label.textContent = new Date(t * 1000).toLocaleDateString(...format);
+      label.textContent = format(new Date(t * 1000));
       labels.append(label);
     }
 

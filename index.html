@@ -3,52 +3,72 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude limits</title>
 <style>
-  :root { --five_hour: #027aff; --seven_day: #ba66ff; --fable: #e9973f; }
-  html { background: #1c2127; color: #dadada; font: 15px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  :root {
+    --bg: #1c2127; --track: #242a31; --rule: #313842; --edge: #3a424c;
+    --text: #e6e6e6; --text-2: #a8b0bb; --text-3: #8a93a0;
+    --five_hour: #3b8eff; --seven_day: #ba66ff; --fable: #e9973f;
+    --warn: #e0de71; --focus: #981aff;
+  }
+  html { background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
-  main { width: min(700px, 100vw - 48px); padding: 48px 0; }
+  main { width: min(1120px, 100% - 32px); padding: clamp(24px, 6vw, 72px) 0; }
   main.stale .tiles, main.stale figure { opacity: .45; }
-  main.empty .tiles, main.empty figure { display: none; }
+  main.empty .tiles, main.empty figure, main.empty nav { display: none; }
 
-  .tiles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; }
-  h2 { margin: 0; font-size: .8rem; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--line); }
-  .pct { margin: .1em 0 0; font-size: 4rem; font-weight: 200; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .reset { margin: 0 0 1em; color: #5c6370; min-height: 1.5em; }
-  .bar { height: 2px; background: #2c323a; }
-  .bar i { display: block; height: 100%; background: var(--line); }
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 4vw, 56px); }
   #five_hour { --line: var(--five_hour); }
   #seven_day { --line: var(--seven_day); }
   #fable { --line: var(--fable); }
-  .warn .pct { color: #e0de71; }
-  .warn .bar i { background: #e0de71; }
+  h2 { display: flex; align-items: center; gap: .6em; margin: 0; font-size: 1rem; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+  h2::before { content: ""; flex: none; width: 1.4em; height: 3px; border-radius: 2px; background: var(--line); }
+  .pct { margin: .05em 0 0; font: 200 clamp(2.4rem, 8vw, 6rem)/1.1 -apple-system, "SF Pro Display", system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .reset { margin: .2em 0 1em; min-height: 1.5em; font-size: clamp(.8rem, 1.6vw, .95rem); color: var(--text-2); }
+  .bar { height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--line); }
+  .warn .pct { color: var(--warn); }
+  .warn .bar i { background: var(--warn); }
 
-  figure { margin: 64px 0 0; }
-  svg { display: block; width: 100%; height: 160px; overflow: visible; }
-  .grid { stroke: #2c323a; stroke-width: 1; vector-effect: non-scaling-stroke; }
-  path { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: clamp(40px, 7vw, 80px); }
+  #asof { font-size: .85rem; color: var(--text-3); }
+  nav { display: flex; padding: 3px; border: 1px solid var(--edge); border-radius: 10px; background: var(--track); }
+  nav a { min-width: 3.2em; padding: .45em .8em; border-radius: 7px; font-size: .9rem; font-weight: 500; text-align: center; color: var(--text-2); text-decoration: none; }
+  nav a:hover { color: var(--text); background: var(--rule); }
+  nav a[aria-current] { color: var(--bg); background: var(--text); }
+  nav a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  figure { position: relative; margin: 20px 0 0; }
+  svg { display: block; width: 100%; height: clamp(220px, 44vh, 480px); overflow: visible; }
+  .grid { stroke: var(--rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
-  #days { position: relative; height: 1.5em; margin-top: .5em; font-size: .75rem; color: #5c6370; }
-  #days span { position: absolute; padding-left: .4em; border-left: 1px solid #2c323a; }
-  figcaption { margin-top: 1em; font-size: .75rem; color: #5c6370; display: flex; gap: 1.5em; }
-  figcaption i { display: inline-block; width: 1.2em; height: 0; margin-right: .5em; vertical-align: middle; border-top: 1.5px solid; }
-  figcaption .h5 i { color: var(--five_hour); }
-  figcaption .d7 i { color: var(--seven_day); }
-  figcaption .fb i { color: var(--fable); }
-  nav { margin-left: auto; display: flex; gap: 1.5em; }
-  nav a { color: #5c6370; text-decoration: none; }
-  nav a.on { color: #dadada; }
+  .axis { position: absolute; left: 0; margin: 0; font-size: .75rem; line-height: 1; color: var(--text-3); transform: translateY(calc(-100% - 5px)); }
+  .axis.top { top: 0; }
+  .axis.mid { top: calc(clamp(220px, 44vh, 480px) / 2); }
+  #days { position: relative; height: 1.5em; margin-top: .6em; font-size: .8rem; color: var(--text-3); }
+  #days span { position: absolute; padding-left: .45em; border-left: 1px solid var(--edge); white-space: nowrap; }
 
-  footer { margin-top: 48px; font-size: .75rem; color: #5c6370; }
+  @media (max-width: 560px) {
+    .controls { flex-direction: column-reverse; align-items: stretch; }
+    nav a { flex: 1; min-width: 0; padding: .6em 0; }
+    h2 { gap: .45em; font-size: .9rem; }
+    h2::before { width: .9em; }
+  }
 </style>
 <main>
   <div class="tiles">
-    <section id="five_hour"><h2>5 h</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
-    <section id="seven_day"><h2>7 d</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
+    <section id="five_hour"><h2>5 hours</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
+    <section id="seven_day"><h2>7 days</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
     <section id="fable"><h2>Fable</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
   </div>
+  <div class="controls">
+    <span id="asof"></span>
+    <nav aria-label="Chart range"><a data-days="5h">5 h</a><a data-days="1">1 d</a><a data-days="7">7 d</a><a data-days="30">30 d</a><a data-days="all">All</a></nav>
+  </div>
   <figure>
+    <p class="axis top">100 %</p>
+    <p class="axis mid">50 %</p>
     <svg viewBox="0 0 700 160" preserveAspectRatio="none">
       <line class="grid" x1="0" x2="700" y1="0" y2="0"/>
       <line class="grid" x1="0" x2="700" y1="80" y2="80"/>
@@ -58,32 +78,28 @@
       <path id="line-fable"/>
     </svg>
     <div id="days"></div>
-    <figcaption>
-      <span class="h5"><i></i>5 h</span><span class="d7"><i></i>7 d</span><span class="fb"><i></i>Fable</span>
-      <nav><a data-days="7">7 d</a><a data-days="30">30 d</a><a data-days="all">all</a></nav>
-    </figcaption>
   </figure>
-  <footer id="asof"></footer>
 </main>
 <script src="limits.js"></script>
 <script>
 // A page opened from disk may not fetch a file, but it may load one as a script.
 const PARAMS = new URLSearchParams(location.search);
 const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
-const DAYS = PARAMS.get('days') || '7';
+const RANGES = { '5h': 5 / 24, 1: 1, 7: 7, 30: 30, all: 'all' };
+const DAYS = PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
 const SOURCES = ['hw', 'reconnact', 'usage-for-claude'];
 for (const a of document.querySelectorAll('nav a')) {
   const params = new URLSearchParams(PARAMS);
   params.set('days', a.dataset.days);
   a.href = `?${params}`;
-  a.classList.toggle('on', a.dataset.days === DAYS);
+  if (a.dataset.days === DAYS) a.setAttribute('aria-current', 'page');
 }
 var S = [];
 let left = SOURCES.length;
 for (const name of SOURCES) {
   const el = document.createElement('script');
   el.src = `${DIR}/${name}.js`;
-  el.onload = el.onerror = () => { if (!--left) Limits.render(document, S, Date.now() / 1000, DAYS === 'all' ? DAYS : Number(DAYS)); };
+  el.onload = el.onerror = () => { if (!--left) Limits.render(document, S, Date.now() / 1000, RANGES[DAYS]); };
   document.head.append(el);
 }
 </script>

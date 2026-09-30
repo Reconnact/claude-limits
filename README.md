@@ -30,7 +30,7 @@ Account names other than `hw` and `reconnact` go into `SOURCES` in `index.html`.
 open ~/Workspace/claude-limits/index.html
 ```
 
-The links under the chart switch between 7 days, 30 days and everything (`?days=7`, `30`, `all`). More than a day without a snapshot shows as a break in the line.
+The buttons above the chart switch between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`). More than a day without a snapshot shows as a break in the line.
 
 `?dir=<url>` reads the data from another folder.
 
