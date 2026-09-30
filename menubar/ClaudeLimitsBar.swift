@@ -8,12 +8,19 @@ struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_d
 let dir = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_DIR"] ?? "/Users/Shared/claude-limits"
 // every account's file; the old app's history and the index are no live value
 let skip: Set = ["sources.js", "usage-for-claude.js"]
+func rgb(_ hex: Int) -> NSColor {
+    NSColor(red: CGFloat(hex >> 16) / 255, green: CGFloat(hex >> 8 & 0xff) / 255, blue: CGFloat(hex & 0xff) / 255, alpha: 1)
+}
+// resolved each time it is drawn, so the colours follow the system's light and dark
+func themed(_ light: Int, _ dark: Int) -> NSColor {
+    NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark) : rgb(light) }
+}
 let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, color: NSColor)] = [
-    ("five_hour", "5 h", \.five_hour, NSColor(red: 0x3b / 255, green: 0x8e / 255, blue: 0xff / 255, alpha: 1)),
-    ("seven_day", "7 d", \.seven_day, NSColor(red: 0xba / 255, green: 0x66 / 255, blue: 0xff / 255, alpha: 1)),
-    ("fable", "Fable", \.fable, NSColor(red: 0xe9 / 255, green: 0x97 / 255, blue: 0x3f / 255, alpha: 1)),
+    ("five_hour", "5 h", \.five_hour, themed(0x1f6fe0, 0x3b8eff)),
+    ("seven_day", "7 d", \.seven_day, themed(0x8b3fd9, 0xba66ff)),
+    ("fable", "Fable", \.fable, themed(0xb35f0a, 0xe9973f)),
 ]
-let warnColor = NSColor(red: 0xe0 / 255, green: 0xde / 255, blue: 0x71 / 255, alpha: 1)
+let warnColor = themed(0x8f8a14, 0xe0de71)
 
 // flat keys, so Claude can edit the file by hand; a missing or bad key falls back on its own
 struct Settings: Codable, Equatable {
