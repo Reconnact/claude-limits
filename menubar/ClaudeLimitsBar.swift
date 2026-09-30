@@ -95,7 +95,7 @@ if CommandLine.arguments.contains("--menu") {
 let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
     .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
 
-// the app has no menu bar to carry ⌘W and ⌘Q; ⌘Q only closes, the LaunchAgent's KeepAlive would restart a quit app
+// the app has no menu bar to carry ⌘W and ⌘Q; ⌘Q only closes the window, Quit in the panel ends the app
 final class PageWindow: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
@@ -159,7 +159,11 @@ final class Bar: NSObject {
                             target: self, action: #selector(open))
         open.keyEquivalent = "o"
         open.keyEquivalentModifierMask = .command
-        views.append(open)
+        let quit = NSButton(title: "Quit", image: NSImage(systemSymbolName: "power", accessibilityDescription: nil)!,
+                            target: NSApp, action: #selector(NSApplication.terminate(_:)))
+        quit.keyEquivalent = "q"
+        quit.keyEquivalentModifierMask = .command
+        views.append(NSStackView(views: [open, quit]))
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
