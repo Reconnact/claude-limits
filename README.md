@@ -84,11 +84,11 @@ echo 'SOURCES.push("server");' >> /Users/Shared/claude-limits/sources.js
 ## The page
 
 - a tile per limit with the time to its reset
-- a tick on each bar marks how much of the window has passed: a fill past it is faster than the window allows; under the bar, the pace of the last hour and, when it fills the window before the reset, the time that happens; nothing until the window is an hour old
+- a tick on each bar marks how much of the window has passed: a fill past it is faster than the window allows; under the bar, the pace of the last hour, of the last day for the weekly limits, and, when it fills the window before the reset, the time that happens
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in instead of a line; beyond 7 days the 5 h windows are left out
-- the chart runs on to the framed window's reset, a grey line marks now, and from there a dashed line shows where the pace of the last hour takes each limit: to 100 % where it hits, else to the reset
+- the chart runs on to the framed window's reset, a grey line marks now, and from there a dashed line shows where that pace takes each limit: to 100 % where it hits, else to the reset
 - "as of" is the last check, which is every Claude Code turn; after 30 minutes without one it shows its age in full contrast
 - a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, agent, session, source or machine (`?by=folder`, `agent`, `session`, `source`, `machine`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder, Source is the entrypoint of the run, `cli` for a terminal and `sdk-cli` for `claude -p`, Machine the host `tally` counted on
 - `?dir=<url>` reads the data from another folder
@@ -100,7 +100,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar with the same tick as on the page, its reset time and the pace of the last hour as `12.6 %/h`, or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar with the same tick as on the page, its reset time and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
@@ -131,7 +131,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
-| `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace of the last hour would fill it before its reset; shown as from Script Editor, macOS asks once whether to allow those |
+| `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace would fill it before its reset; shown as from Script Editor, macOS asks once whether to allow those |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
 
 A missing file or key, or a value not in the list, takes the default. With no icon and no text the pie shows.

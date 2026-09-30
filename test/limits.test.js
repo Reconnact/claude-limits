@@ -113,11 +113,6 @@ test('current: a reset window has no share', () => {
   assert.equal(Limits.current(S, T0 + 6 * H).five_hour.elapsed, undefined);
 });
 
-test('pace: none before the window is an hour old', () => {
-  const S = [snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null)];
-  assert.equal(Limits.pace(S, 'five_hour', T0 + 50 * 60), null);
-});
-
 test('pace: the rise over the last hour, full before the reset', () => {
   const S = [
     snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null),
@@ -132,9 +127,23 @@ test('pace: a slower rise reaches the reset first', () => {
   assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 5, full: null });
 });
 
-test('pace: before the first point the window starts at 0 %', () => {
+test('pace: nothing is known before a window\'s first snapshot, so the rise starts there', () => {
   const S = [snap(T0 + 90 * 60, 'hw', [30, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 15, full: null });
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 0, full: null });
+});
+
+test('pace: the rise counts across a reset, so a young window has one', () => {
+  const S = [
+    snap(T0 - 2 * H, 'hw', [40, T0], null),
+    snap(T0 - 20 * 60, 'hw', [60, T0], null),
+    snap(T0 + 20 * 60, 'hw', [10, T0 + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 30 * 60), { rate: 30, full: T0 + 30 * 60 + 3 * H });
+});
+
+test('pace: the weekly limits take the rise over the last day, from the first snapshot in it', () => {
+  const S = [snap(T0 - 20 * H, 'hw', null, [10, T0 + 3 * DAY]), snap(T0 - 2 * H, 'hw', null, [30, T0 + 3 * DAY]), snap(T0, 'hw', null, [40, T0 + 3 * DAY])];
+  assert.deepEqual(Limits.pace(S, 'seven_day', T0), { rate: 1.5, full: T0 + (100 - 40) / 1.5 * 3600 });
 });
 
 test('pace: an idle stretch brings the rate down to 0', () => {
@@ -147,30 +156,11 @@ test('pace: an expired window has none', () => {
   assert.equal(Limits.pace(S, 'five_hour', T0 + 6 * H), null);
 });
 
-test('pace: the text under a limit', () => {
-  assert.equal(Limits.paceText(null, T0), '');
-  assert.equal(Limits.paceText({ rate: 5, full: null }, T0), 'on track · 5.0 %/h');
-  assert.match(Limits.paceText({ rate: 40, full: T0 + 3 * H }, T0), /^at this pace full (\w{3} )?\d\d:\d\d · 40\.0 %\/h$/);
-});
-
-test('projection: none without a pace', () => {
-  const S = [snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 50 * 60, T0 + 5 * H), []);
-});
-
-test('projection: from now at the last value up to 100 % where the pace hits it', () => {
-  const S = [snap(T0 + H, 'hw', [20, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [60, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 5 * H), [{ t: T0 + 2 * H, pct: 60 }, { t: T0 + 3 * H, pct: 100 }]);
-});
-
-test('projection: on track it ends at the reset, at the value the pace reaches there', () => {
-  const S = [snap(T0 + H, 'hw', [5, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [10, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 5 * H), [{ t: T0 + 2 * H, pct: 10 }, { t: T0 + 5 * H, pct: 25 }]);
-});
-
-test('projection: cut at the end of the chart', () => {
-  const S = [snap(T0 + H, 'hw', [5, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [10, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 3 * H), [{ t: T0 + 2 * H, pct: 10 }, { t: T0 + 3 * H, pct: 15 }]);
+test('pace: the text under a limit, per hour or per day', () => {
+  assert.equal(Limits.paceText(null, T0, 'five_hour'), '');
+  assert.equal(Limits.paceText({ rate: 5, full: null }, T0, 'five_hour'), 'on track · 5.0 %/h');
+  assert.equal(Limits.paceText({ rate: 1.3, full: null }, T0, 'seven_day'), 'on track · 31 %/d');
+  assert.match(Limits.paceText({ rate: 40, full: T0 + 3 * H }, T0, 'five_hour'), /^at this pace full (\w{3} )?\d\d:\d\d · 40\.0 %\/h$/);
 });
 
 test('segments: the line ends where its window resets, the next window starts a new one', () => {

@@ -15,10 +15,11 @@ func rgb(_ hex: Int) -> NSColor {
 func themed(_ light: Int, _ dark: Int) -> NSColor {
     NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark) : rgb(light) }
 }
-let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, length: Double, color: NSColor)] = [
-    ("five_hour", "5 h", \.five_hour, 5 * 3600, themed(0x1f6fe0, 0x3b8eff)),
-    ("seven_day", "7 d", \.seven_day, 7 * 86400, themed(0x8b3fd9, 0xba66ff)),
-    ("fable", "Fable", \.fable, 7 * 86400, themed(0xb35f0a, 0xe9973f)),
+// span: the pace is the rise over the last hour, over the last day for the weekly limits
+let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, length: Double, span: Double, color: NSColor)] = [
+    ("five_hour", "5 h", \.five_hour, 5 * 3600, 3600, themed(0x1f6fe0, 0x3b8eff)),
+    ("seven_day", "7 d", \.seven_day, 7 * 86400, 86400, themed(0x8b3fd9, 0xba66ff)),
+    ("fable", "Fable", \.fable, 7 * 86400, 86400, themed(0xb35f0a, 0xe9973f)),
 ]
 let warnColor = themed(0x8f8a14, 0xe0de71)
 
@@ -97,16 +98,23 @@ func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_a
     return ws.max { $0.pct < $1.pct }
 }
 
-// as pace() on the page: the rise over the last hour of the current window in % per hour, from the value held then or from 0 % at its start,
-// and when it fills the window if that comes before the reset; none before the window is an hour old
-func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, length: Double, now: Double) -> (rate: Double, full: Double?)? {
+// as pace() on the page: the rise over the span in % per hour, counted across a reset from each window's held value; before a window's
+// first snapshot nothing is known, so the span starts at the first snapshot it meets. And when the current window reaches 100 % at that
+// rate, if that comes before its reset
+func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, span: Double, now: Double) -> (rate: Double, full: Double?)? {
     let ws = all.compactMap { s in s[keyPath: key].map { (t: s.ts, w: $0) } }
-    guard let newest = ws.map(\.w.resets_at).max(), newest > now, now - (newest - length) >= 3600 else { return nil }
-    let own = ws.filter { newest - $0.w.resets_at <= 60 }
-    let pct = own.map(\.w.used_percentage).max() ?? 0
-    let before = own.filter { $0.t <= now - 3600 }
-    let base = before.isEmpty ? (t: newest - length, pct: 0.0) : (t: before.map(\.t).max()!, pct: before.map(\.w.used_percentage).max()!)
-    let rate = (pct - base.pct) / (now - base.t) * 3600
+    guard let newest = ws.map(\.w.resets_at).max(), newest > now else { return nil }
+    // windows: resets_at within a minute is the same one
+    let ends = ws.map(\.w.resets_at).sorted().reduce(into: [Double]()) { if let l = $0.last, $1 - l <= 60 { return }; $0.append($1) }
+    let windows = ends.filter { $0 + 60 > now - span }.map { end in ws.filter { abs($0.w.resets_at - end) <= 60 } }
+    let since = max(now - span, windows.compactMap { $0.map(\.t).min() }.min() ?? now)
+    guard since < now else { return nil }
+    let rise = windows.reduce(0.0) { sum, own in
+        let at = { (t: Double) in own.filter { $0.t <= t }.map(\.w.used_percentage).max() ?? 0 }
+        return sum + at(min(now, own[0].w.resets_at)) - at(since)
+    }
+    let rate = rise / (now - since) * 3600
+    let pct = ws.filter { abs($0.w.resets_at - newest) <= 60 }.map(\.w.used_percentage).max() ?? 0
     let full = rate > 0 ? now + (100 - pct) / rate * 3600 : nil
     return (rate, full.flatMap { $0 < newest ? $0 : nil })
 }
@@ -152,8 +160,8 @@ func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, elapsed:
     s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
         let elapsed = w.resets_at.map { min(1, max(0, (now - ($0 - l.length)) / l.length)) }
-        let p = pace(all, l.key, length: l.length, now: now)
-        let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? "\(String(format: "%.1f", $0.rate)) %/h" }
+        let p = pace(all, l.key, span: l.span, now: now)
+        let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? (l.span == 3600 ? "\(String(format: "%.1f", $0.rate)) %/h" : "\(Int(($0.rate * 24).rounded())) %/d") }
         return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", text, l.color)
     }
 }
@@ -166,7 +174,7 @@ func alerts(_ all: [Snapshot], _ s: Settings, now: Double) -> [(id: String, titl
         let at = resets(reset, s.resetFormat, now: now)
         var out: [(id: String, title: String, body: String)] = []
         if s.warnAt > 0 && w.pct >= s.warnAt { out.append(("\(l.id)|\(Int(reset))|warn", "\(l.name) at \(w.pct) %", at)) }
-        if let full = pace(all, l.key, length: l.length, now: now)?.full {
+        if let full = pace(all, l.key, span: l.span, now: now)?.full {
             out.append(("\(l.id)|\(Int(reset))|pace", "\(l.name) full \(when(full, "time", now: now))", "at this pace · \(at)"))
         }
         return out

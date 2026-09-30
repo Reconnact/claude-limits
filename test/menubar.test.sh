@@ -71,9 +71,9 @@ rm "$TMP/hw-checked.js"
 # a busy window: the pace of the last hour fills it before the reset
 { line $((NOW - 7000)) 12 $((NOW + 3 * 3600)); line $((NOW - 3500)) 30 $((NOW + 3 * 3600)); line $((NOW - 60)) 58 $((NOW + 3 * 3600)); } > "$TMP/hw.js"
 check "a pace that fills the window before its reset says when" "full" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4 | cut -c1-4)"
-check "a pace that does not shows its rate" "0.0 %/h" "$(./menubar/claude-limits-bar --menu | sed -n 2p | cut -f4)"
+check "a weekly pace that does not shows its rate per day" "0 %/d" "$(./menubar/claude-limits-bar --menu | sed -n 2p | cut -f4)"
 line $((NOW - 60)) 5 $((NOW + 5 * 3600 - 60)) > "$TMP/hw.js"
-check "no pace before the window is an hour old" "" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4)"
+check "a lone first snapshot has no rise yet" "0.0 %/h" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4)"
 ./menubar/claude-limits-bar --panel "$TMP/panel.png"
 check "the panel renders to a file" "yes" "$([ -s "$TMP/panel.png" ] && echo yes || echo no)"
 
@@ -111,7 +111,7 @@ check "settings: countdown under an hour" "resets in 42 min" "$(reset_text)"
 
 # notifications: once when a limit reaches the yellow level, once when its pace fills the window before the reset
 alerts() { ./menubar/claude-limits-bar --alerts | cut -f1 | paste -sd '|' -; }
-line $((NOW - 60)) 85 $((NOW + 600)) > "$TMP/hw.js"
+line $((NOW - 60)) 85 $((NOW + 300)) > "$TMP/hw.js"
 settings '{}'
 check "alert at the yellow level" "5 h at 85 %" "$(alerts)"
 settings '{"warnAt":0}'

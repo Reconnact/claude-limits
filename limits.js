@@ -1,8 +1,8 @@
 (function (root) {
   const SAME_WINDOW = 60;   // resets_at moves by a few seconds between responses, a new window by hours
   const STALE = 30 * 60;
-  const RATE_SPAN = 3600;   // the pace is the rise over the last hour
   const DAY = 24 * 3600;
+  const RATE_SPAN = { five_hour: 3600, seven_day: DAY, fable: DAY };   // the pace is the rise over the last hour, over the last day for the weekly limits
   const KEYS = ['five_hour', 'seven_day', 'fable'];
   const LENGTH = { five_hour: 5 * 3600, seven_day: 7 * DAY, fable: 7 * DAY };
   // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h; fast mode doubles all of it.
@@ -51,23 +51,28 @@
     };
   }
 
-  // The rise over the last hour of the current window in % per hour, from the value held an hour ago, or from 0 % at the window's start;
-  // and when it reaches 100 % if that comes before the reset. None before the window is an hour old, the estimate jumps until then.
+  // The rise over the span in % per hour, counted across a reset from each window's held value; before a window's first
+  // snapshot nothing is known, so the span starts at the first snapshot it meets. And when the current window reaches 100 %
+  // at that rate, if that comes before its reset.
   function pace(S, key, now) {
-    const own = points(S, key);
-    const last = own[own.length - 1];
+    const pts = points(S, key);
+    const last = pts[pts.length - 1];
     if (!last || last.resets_at <= now) return null;
-    const start = last.resets_at - LENGTH[key];
-    if (now - start < RATE_SPAN) return null;
-    const base = own.filter(p => p.resets_at === last.resets_at && p.t <= now - RATE_SPAN).pop() || { t: start, pct: 0 };
-    const rate = (last.pct - base.pct) / (now - base.t) * 3600;
+    const windows = byWindow(pts).filter(w => w.end > now - RATE_SPAN[key]);
+    const since = Math.max(now - RATE_SPAN[key], Math.min(...windows.map(w => w.own[0].t)));
+    if (since >= now) return null;
+    const rise = windows.reduce((sum, { end, own }) => {
+      const at = t => own.filter(p => p.t <= t).map(p => p.pct).pop() || 0;
+      return sum + at(Math.min(now, end)) - at(since);
+    }, 0);
+    const rate = rise / (now - since) * 3600;
     const full = rate > 0 ? now + (100 - last.pct) / rate * 3600 : null;
     return { rate, full: full !== null && full < last.resets_at ? full : null };
   }
 
-  function paceText(p, now) {
+  function paceText(p, now, key) {
     if (!p) return '';
-    const rate = `${p.rate.toFixed(1)} %/h`;
+    const rate = key === 'five_hour' ? `${p.rate.toFixed(1)} %/h` : `${Math.round(p.rate * 24)} %/d`;
     return p.full ? `at this pace full ${clock(p.full, now)} · ${rate}` : `on track · ${rate}`;
   }
 
@@ -219,7 +224,7 @@
       const tick = el.querySelector('.bar b');
       tick.hidden = !w || w.reset;
       tick.style.left = w && !w.reset ? `${w.elapsed * 100}%` : '';
-      el.querySelector('.pace').textContent = paceText(pace(S, key, now), now).replace(/(\d) /g, '$1\u00a0');
+      el.querySelector('.pace').textContent = paceText(pace(S, key, now), now, key).replace(/(\d) /g, '$1\u00a0');
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
