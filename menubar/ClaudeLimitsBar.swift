@@ -535,12 +535,8 @@ final class Bar: NSObject {
         var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)]
         if let color { attributes[.foregroundColor] = color }
         item.button?.attributedTitle = NSAttributedString(string: text, attributes: attributes)
-        // built here, not on the click, so the panel opens without the work; the popover's own size, since it reads the
-        // controller's preferred size only while shown
-        if !popover.isShown {
-            panel.view = content()
-            popover.contentSize = panel.view.fittingSize
-        }
+        // built here, not on the click, so the panel opens without the work
+        if !popover.isShown { panel.view = content() }
     }
 
     // per window, not NSApp.appearance, so the menu bar item keeps the menu bar's look
@@ -562,6 +558,8 @@ final class Bar: NSObject {
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil); return }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        // sized here, shown: a size set while the popover is closed is ignored, and so is the controller's preferred size after the first show
+        popover.contentSize = panel.view.fittingSize
         panel.view.window?.styleMask.insert(.nonactivatingPanel)
         panel.view.window?.makeKey()
         refresh()
