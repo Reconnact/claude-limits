@@ -99,8 +99,8 @@ final class Bar: NSObject, NSMenuDelegate {
 
     override init() {
         super.init()
-        item.menu = NSMenu()
-        item.menu?.delegate = self
+        item.button?.target = self
+        item.button?.action = #selector(show)
         refresh()
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
     }
@@ -130,8 +130,23 @@ final class Bar: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         let open = NSMenuItem(title: "Open page", action: #selector(open), keyEquivalent: "o")
         open.target = self
+        open.image = NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)
         menu.addItem(open)
         refresh()
+    }
+
+    // centred under the icon; a status item's own menu opens flush left.
+    // Starts at the menu bar's lower edge, not the button's: with a notch the bar is taller, and a menu reaching into it scrolls.
+    @objc func show() {
+        guard let button = item.button else { return }
+        let menu = NSMenu()
+        menu.delegate = self
+        menuNeedsUpdate(menu)
+        guard let window = button.window, let screen = window.screen ?? NSScreen.main else { return }
+        let icon = window.convertToScreen(button.convert(button.bounds, to: nil))
+        button.highlight(true)
+        menu.popUp(positioning: nil, at: NSPoint(x: icon.midX - menu.size.width / 2, y: screen.visibleFrame.maxY), in: nil)
+        button.highlight(false)
     }
 
     @objc func open() { NSWorkspace.shared.open(page) }
