@@ -134,6 +134,7 @@ for (const a of document.querySelectorAll('nav a')) {
   params.set(key, value);
   a.href = `?${params}`;
   if (value === { days: DAYS, line: LINE }[key]) a.setAttribute('aria-current', 'page');
+  a.onclick = () => sessionStorage.setItem('claude-limits-scroll', scrollY);
 }
 var S = [], T = [], SOURCES = [];
 const load = (src, done) => {
@@ -142,7 +143,13 @@ const load = (src, done) => {
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, LINE);
+// a button loads the page anew, which would open at the top; the page is short until it has drawn
+const draw = () => {
+  Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, LINE);
+  const y = sessionStorage.getItem('claude-limits-scroll');
+  sessionStorage.removeItem('claude-limits-scroll');
+  if (y) scrollTo(0, y);
+};
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
   const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
