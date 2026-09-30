@@ -95,13 +95,26 @@ if CommandLine.arguments.contains("--menu") {
 let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
     .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
 
-final class Bar: NSObject, NSMenuDelegate {
+final class Bar: NSObject {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    let popover = NSPopover()
+
+    lazy var pageWindow: NSWindow = {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window.title = "claude-limits"
+        window.contentView = WKWebView()
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.setFrameAutosaveName("page")
+        return window
+    }()
 
     override init() {
         super.init()
+        popover.behavior = .transient
         item.button?.target = self
-        item.button?.action = #selector(show)
+        item.button?.action = #selector(toggle)
         refresh()
         Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
     }
@@ -110,61 +123,54 @@ final class Bar: NSObject, NSMenuDelegate {
         item.button?.image = pie(window(snapshots(), \.five_hour, now: Date().timeIntervalSince1970)?.pct)
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
+    func content() -> NSView {
         let now = Date().timeIntervalSince1970
         let all = snapshots()
-        menu.removeAllItems()
+        var views: [NSView] = []
         let style = NSMutableParagraphStyle()
         style.tabStops = [NSTextTab(textAlignment: .left, location: 50), NSTextTab(textAlignment: .left, location: 100)]
         let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         for (row, l) in zip(rows(all, now: now), limits) {
             guard let row else { continue }
-            let entry = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-            entry.attributedTitle = NSAttributedString(string: row.text, attributes: [.font: font, .paragraphStyle: style])
-            entry.image = meter(row.pct, l.color)
-            menu.addItem(entry)
+            let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.text, attributes: [.font: font, .paragraphStyle: style]))
+            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, l.color)), text]))
         }
         if let age = age(all, now: now) {
-            menu.addItem(NSMenuItem(title: age, action: nil, keyEquivalent: ""))
+            let label = NSTextField(labelWithString: age)
+            label.textColor = .secondaryLabelColor
+            views.append(label)
         }
-        if menu.items.isEmpty { menu.addItem(NSMenuItem(title: "no data yet", action: nil, keyEquivalent: "")) }
-        menu.addItem(.separator())
-        let open = NSMenuItem(title: "Open page", action: #selector(open), keyEquivalent: "o")
-        open.target = self
-        open.image = NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)
-        menu.addItem(open)
+        if views.isEmpty { views.append(NSTextField(labelWithString: "no data yet")) }
+        let open = NSButton(title: "Open page", image: NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)!,
+                            target: self, action: #selector(open))
+        open.keyEquivalent = "o"
+        open.keyEquivalentModifierMask = .command
+        views.append(open)
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        return stack
+    }
+
+    @objc func toggle() {
+        guard let button = item.button else { return }
+        if popover.isShown { popover.performClose(nil); return }
+        let controller = NSViewController()
+        controller.view = content()
+        controller.preferredContentSize = controller.view.fittingSize
+        popover.contentViewController = controller
+        NSApp.activate()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         refresh()
     }
 
-    // centred under the icon; a status item's own menu opens flush left.
-    // Starts at the menu bar's lower edge, not the button's: with a notch the bar is taller, and a menu reaching into it scrolls.
-    @objc func show() {
-        guard let button = item.button else { return }
-        let menu = NSMenu()
-        menu.delegate = self
-        menuNeedsUpdate(menu)
-        guard let window = button.window, let screen = window.screen ?? NSScreen.main else { return }
-        let icon = window.convertToScreen(button.convert(button.bounds, to: nil))
-        button.highlight(true)
-        menu.popUp(positioning: nil, at: NSPoint(x: icon.midX - menu.size.width / 2, y: screen.visibleFrame.maxY), in: nil)
-        button.highlight(false)
-    }
-
-    lazy var panel: NSPopover = {
-        let controller = NSViewController()
-        controller.view = WKWebView(frame: NSRect(x: 0, y: 0, width: 760, height: 600))
-        let popover = NSPopover()
-        popover.contentViewController = controller
-        popover.behavior = .transient
-        return popover
-    }()
-
     // the page loads the data files from /Users/Shared as scripts, outside the repo
     @objc func open() {
-        guard let button = item.button, let web = panel.contentViewController?.view as? WKWebView else { return }
-        web.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        popover.performClose(nil)
+        (pageWindow.contentView as? WKWebView)?.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
         NSApp.activate()
-        panel.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        pageWindow.makeKeyAndOrderFront(nil)
     }
 }
 
