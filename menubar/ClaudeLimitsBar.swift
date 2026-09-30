@@ -22,6 +22,7 @@ let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, span: D
     ("fable", "Fable", \.fable, 86400, themed(0xb35f0a, 0xe9973f)),
 ]
 let warnColor = themed(0x8f8a14, 0xe0de71)
+let columns = [("bar", "Bar"), ("percent", "Percent"), ("reset", "Reset"), ("pace", "Pace")]
 
 // flat keys, so Claude can edit the file by hand; a missing or bad key falls back on its own
 struct Settings: Codable, Equatable {
@@ -32,6 +33,7 @@ struct Settings: Codable, Equatable {
     var chartLine = "steps"
     var theme = "system"
     var panelLimits = limits.map(\.id)
+    var panelColumns = ["bar", "percent", "pace"]
     var warnAt = 80
     var notify = true
     var refreshSeconds = 60
@@ -54,6 +56,7 @@ struct Settings: Codable, Equatable {
         chartLine = pick(.chartLine, ["steps", "smooth"]) ?? chartLine
         theme = pick(.theme, ["system", "light", "dark"]) ?? theme
         if let ids = try? c.decode([String].self, forKey: .panelLimits) { panelLimits = ids.filter { limits.map(\.id).contains($0) } }
+        if let ids = try? c.decode([String].self, forKey: .panelColumns) { panelColumns = ids.filter { columns.map(\.0).contains($0) } }
         if let n = try? c.decode(Int.self, forKey: .warnAt), (0...100).contains(n) { warnAt = n }
         if let b = try? c.decode(Bool.self, forKey: .notify) { notify = b }
         if let n = try? c.decode(Int.self, forKey: .refreshSeconds), n >= 10 { refreshSeconds = n }
@@ -156,12 +159,19 @@ func menuBarTitle(_ all: [Snapshot], _ s: Settings, now: Double) -> String {
     }
 }
 
-func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, text: String, pace: String?, color: NSColor)] {
+func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, fields: [String], color: NSColor)] {
     s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
         let p = pace(all, l.key, span: l.span, now: now)
-        let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? (l.span == 3600 ? "\(String(format: "%.1f", $0.rate)) %/h" : "\(Int(($0.rate * 24).rounded())) %/d") }
-        return (w.pct, "\(l.name)\t\(w.pct) %", text, l.color)
+        let fields = s.panelColumns.compactMap { c -> String? in
+            switch c {
+            case "percent": return "\(w.pct) %"
+            case "reset": return resets(w.resets_at, s.resetFormat, now: now)
+            case "pace": return p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? (l.span == 3600 ? "\(String(format: "%.1f", $0.rate)) %/h" : "\(Int(($0.rate * 24).rounded())) %/d") } ?? ""
+            default: return nil
+            }
+        }
+        return (w.pct, [l.name] + fields, l.color)
     }
 }
 
@@ -246,14 +256,19 @@ func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?
     var views: [NSView] = []
     let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     let rows = rows(all, s, now: now)
+    var stops: [CGFloat] = []
+    for i in 0..<max(0, (rows.map(\.fields.count).max() ?? 0) - 1) {
+        let width = rows.map { $0.fields.count > i ? ($0.fields[i] as NSString).size(withAttributes: [.font: font]).width : 0 }.max() ?? 0
+        stops.append((stops.last ?? 0) + width + 16)
+    }
     let style = NSMutableParagraphStyle()
-    style.tabStops = [50, 100, 150].map { NSTextTab(textAlignment: .left, location: $0) }
+    style.tabStops = stops.map { NSTextTab(textAlignment: .left, location: $0) }
     for row in rows {
-        let line = row.text + (row.pace.map { "\t" + $0 } ?? "")
-        let text = NSTextField(labelWithAttributedString: NSAttributedString(string: line, attributes: [.font: font, .paragraphStyle: style]))
+        let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.fields.joined(separator: "\t"), attributes: [.font: font, .paragraphStyle: style]))
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.required, for: .horizontal)
-        views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.color)), text]))
+        let bar = s.panelColumns.contains("bar") ? [NSImageView(image: meter(row.pct, row.color))] : []
+        views.append(NSStackView(views: bar + [text]))
     }
     if let age = age(all, now: now) {
         let label = NSTextField(labelWithString: age)
@@ -295,7 +310,7 @@ if CommandLine.arguments.contains("--title") {
 }
 if CommandLine.arguments.contains("--menu") {
     let all = snapshots()
-    rows(all, Settings.load(), now: now).forEach { print($0.text + ($0.pace.map { "\t" + $0 } ?? "")) }
+    rows(all, Settings.load(), now: now).forEach { print($0.fields.joined(separator: "\t")) }
     age(all, now: now).map { print($0) }
     exit(0)
 }
@@ -364,11 +379,11 @@ final class Store: ObservableObject {
 struct SettingsView: View {
     @ObservedObject var store: Store
 
-    func panelRow(_ id: String) -> Binding<Bool> {
-        Binding(get: { store.settings.panelLimits.contains(id) },
+    func member(_ list: WritableKeyPath<Settings, [String]>, _ id: String) -> Binding<Bool> {
+        Binding(get: { store.settings[keyPath: list].contains(id) },
                 set: { on in
-                    store.settings.panelLimits.removeAll { $0 == id }
-                    if on { store.settings.panelLimits.append(id) }
+                    store.settings[keyPath: list].removeAll { $0 == id }
+                    if on { store.settings[keyPath: list].append(id) }
                 })
     }
 
@@ -415,8 +430,11 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
-            Section("Panel") {
-                ForEach(limits, id: \.id) { Toggle($0.name, isOn: panelRow($0.id)) }
+            Section("Panel rows") {
+                ForEach(limits, id: \.id) { Toggle($0.name, isOn: member(\.panelLimits, $0.id)) }
+            }
+            Section("Panel columns") {
+                ForEach(columns, id: \.0) { Toggle($0.1, isOn: member(\.panelColumns, $0.0)) }
             }
             Section {
                 Stepper("Re-read the data every \(store.settings.refreshSeconds) s",

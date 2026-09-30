@@ -102,6 +102,17 @@ settings '{"panelLimits":["fable","five_hour"]}'
 check "settings: panel rows in their order" "Fable 76 %|5 h 24 %" "$(menu)"
 settings '{"panelLimits":["fable","nope"]}'
 check "settings: unknown panel row dropped" "Fable 76 %" "$(menu)"
+row() { ./menubar/claude-limits-bar --menu | head -1 | tr '\t' ' '; }
+settings '{"panelColumns":["percent","reset","pace"],"resetFormat":"countdown"}'
+check "settings: a reset column in the panel" "5 h 24 % resets in 1 h 0.0 %/h" "$(row)"
+settings '{"panelColumns":["pace","percent"]}'
+check "settings: panel columns in their order, the name first" "5 h 0.0 %/h 24 %" "$(row)"
+settings '{"panelColumns":["nope","percent"]}'
+check "settings: unknown panel column dropped" "5 h 24 %" "$(row)"
+settings '{"panelColumns":[]}'
+check "settings: no columns leaves the name" "5 h" "$(row)"
+./menubar/claude-limits-bar --panel "$TMP/panel-text.png"
+check "the panel renders without a bar" "yes" "$([ -s "$TMP/panel-text.png" ] && echo yes || echo no)"
 
 printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":24,"resets_at":%s}});\n' $((NOW - 60)) $((NOW + 3 * 86400 + 4 * 3600 + 30)) > "$TMP/hw.js"
 settings '{"menuBarText":"reset","resetFormat":"countdown"}'

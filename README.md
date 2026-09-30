@@ -100,7 +100,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with a row per limit: its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first; the reset time too, when `panelColumns` says so. Below, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
@@ -115,6 +115,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
   "chartLine": "steps",
   "theme": "system",
   "panelLimits": ["five_hour", "seven_day", "fable"],
+  "panelColumns": ["bar", "percent", "pace"],
   "warnAt": 80,
   "notify": true,
   "refreshSeconds": 60
@@ -130,6 +131,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `chartLine` | `steps`, `smooth` | `steps` | the chart on the page from `Open page`: a step at each snapshot, or a straight line from one to the next |
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
+| `panelColumns` | `bar`, `percent`, `reset`, `pace` | `bar`, `percent`, `pace` | what a row shows after the limit's name, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
 | `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace would fill it before its reset; shown as from Script Editor, macOS asks once whether to allow those |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
