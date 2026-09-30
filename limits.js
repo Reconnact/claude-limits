@@ -195,14 +195,12 @@
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now);
-    for (const key of KEYS) {
-      const d = segments(S, key, from, now).map(l => path(l, from, now, 700, 160, stepped)).join('');
+    const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
+    // a framed line is its fill's top edge, and over weeks the 5 h line is noise under the weekly frames
+    for (const key of KEYS.filter(k => k !== 'five_hour')) {
+      const d = key === framed ? '' : segments(S, key, from, now).map(l => path(l, from, now, 700, 160, stepped)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
     }
-
-    const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
-    // over weeks the 5 h line is noise under the weekly frames
-    if (framed === 'seven_day') doc.getElementById('line-five_hour').setAttribute('d', '');
     // only a framed line gets a ramp, it stays inside its window's frame
     for (const key of KEYS)
       doc.getElementById(`ramp-${key}`).setAttribute('d', key !== framed ? '' : ramps(S, key, from, now).map(line => path(line, from, now, 700, 160, false)).join(''));
