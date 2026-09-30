@@ -17,6 +17,8 @@ check() {   # check <name> <expected> <actual>
 
 # no Keychain in the tests, so the background fetch-usage stops before the network
 mkdir -p "$TMP/bin"; printf '#!/bin/sh\nexit 44\n' > "$TMP/bin/security"; chmod +x "$TMP/bin/security"
+# nor a git, so the background update leaves this clone alone
+cp "$TMP/bin/security" "$TMP/bin/git"
 export PATH="$TMP/bin:$PATH"
 # and the background tally finds no transcripts
 export CLAUDE_CONFIG_DIR="$TMP/claude"

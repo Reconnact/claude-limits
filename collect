@@ -51,3 +51,10 @@ if [ -d "$DIR" ] && [ -z "$(find "$STAMP" -mmin -5 2>/dev/null)" ]; then
   touch "$STAMP"
   { "$(dirname "$0")/fetch-usage"; "$(dirname "$0")/tally"; } </dev/null >/dev/null 2>&1 &
 fi
+
+# at most once a day the clone updates itself
+UPDATED="$DIR/.$ME-updated"
+if [ -d "$DIR" ] && [ -z "$(find "$UPDATED" -mtime -1 2>/dev/null)" ]; then
+  touch "$UPDATED"
+  "$(dirname "$0")/update" </dev/null >/dev/null 2>&1 &
+fi

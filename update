@@ -1,0 +1,10 @@
+#!/bin/bash
+# Pulls the newest version unless the clone has changes of its own; rebuilds the menu bar item when its code changed.
+cd "$(dirname "$0")" || exit 1
+[ -z "$(git status --porcelain)" ] || exit 0
+BEFORE="$(git rev-parse HEAD)" || exit 0
+git pull -q --ff-only || exit 0
+[ "$BEFORE" != "$(git rev-parse HEAD)" ] || exit 0
+if ! git diff --quiet "$BEFORE" HEAD -- menubar Makefile && launchctl print "gui/$(id -u)/net.alpha-lab.claude-limits-bar" >/dev/null 2>&1; then
+  make -s install-menubar
+fi
