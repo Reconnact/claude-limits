@@ -40,6 +40,12 @@ line $((NOW - 60)) 12 $((NOW + 3600)) > "$TMP/reconnact.js"
 line $((NOW - 30)) 3 $((NOW + 3600)) > "$TMP/usage-for-claude.js"
 check "old app data is ignored" "12%" "$(bar)"
 
+line $((NOW - 60)) 27 $((NOW + 3602)) > "$TMP/reconnact.js"
+line $((NOW - 60)) 28 $((NOW + 3600)) >> "$TMP/reconnact.js"
+check "same second, the higher value" "28%" "$(bar)"
+line $((NOW - 60)) 5 $((NOW + 5 * 3600)) >> "$TMP/reconnact.js"
+check "a newer window wins over a higher value" "5%" "$(bar)"
+
 rm "$TMP"/*.js
 line $((NOW - 60)) 33 $((NOW + 3600)) > "$TMP/someone.js"
 printf 'SOURCES.push("someone");\n' > "$TMP/sources.js"

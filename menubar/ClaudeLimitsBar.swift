@@ -24,9 +24,12 @@ func snapshots() -> [Snapshot] {
         }
 }
 
-// newest snapshot that has this window
+// as on the page: the newest window and its highest value, so two snapshots in the same second cannot lower it
 func window(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, now: Double) -> (pct: Int, resets_at: Double?)? {
-    guard let w = all.filter({ $0[keyPath: key] != nil }).max(by: { $0.ts < $1.ts })?[keyPath: key] else { return nil }
+    let ws = all.compactMap { $0[keyPath: key] }
+    // resets_at moves by a few seconds between responses, a new window by hours
+    guard let newest = ws.map(\.resets_at).max(),
+          let w = ws.filter({ newest - $0.resets_at <= 60 }).max(by: { $0.used_percentage < $1.used_percentage }) else { return nil }
     return w.resets_at <= now ? (0, nil) : (Int(w.used_percentage.rounded()), w.resets_at)
 }
 
