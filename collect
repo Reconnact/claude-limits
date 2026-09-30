@@ -8,7 +8,7 @@ LAST="$(tail -1 "$FILE" 2>/dev/null)"
 LAST="${LAST#S.push(}"
 LAST="${LAST%);}"
 # only fetch-usage brings the Fable window, so it is compared with the last line that has one
-LASTF="$(grep '"fable"' "$FILE" 2>/dev/null | tail -1)"
+LASTF="$(tail -r "$FILE" 2>/dev/null | grep -m1 '"fable"')"
 LASTF="${LASTF#S.push(}"
 LASTF="${LASTF%);}"
 

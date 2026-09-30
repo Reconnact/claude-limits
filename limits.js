@@ -50,23 +50,33 @@
     };
   }
 
+  // points() keeps a window's points together, so one pass splits them.
+  function byWindow(pts) {
+    const out = [];
+    for (let i = 0; i < pts.length;) {
+      let j = i;
+      while (j < pts.length && pts[j].resets_at === pts[i].resets_at) j++;
+      let n = j;
+      while (n < pts.length && pts[n].t <= pts[j - 1].t) n++;
+      out.push({ end: pts[i].resets_at, own: pts.slice(i, j), next: pts[n] });
+      i = j;
+    }
+    return out;
+  }
+
   // One line per window, from its first point to its reset: snapshots come only with Claude Code turns, so a gap is idle time and the value holds.
   function segments(S, key, from, to) {
-    const pts = points(S, key);
-    return [...new Set(pts.map(p => p.resets_at))].map(end => {
-      const own = pts.filter(p => p.resets_at === end).map(p => ({ t: p.t, pct: p.pct })), last = own[own.length - 1];
-      const next = pts.find(p => p.t > last.t);
-      return clip([...own, { t: Math.min(end, next ? next.t : end), pct: last.pct }], from, to);
+    return byWindow(points(S, key)).map(({ end, own, next }) => {
+      const last = own[own.length - 1];
+      return clip([...own.map(p => ({ t: p.t, pct: p.pct })), { t: Math.min(end, next ? next.t : end), pct: last.pct }], from, to);
     }).filter(line => line.length);
   }
 
   // Before a window's first point only its start at 0 % is known: a straight line up to that point, drawn dashed.
   function ramps(S, key, from, to) {
-    const pts = points(S, key);
-    return [...new Set(pts.map(p => p.resets_at))].map(end => {
-      const first = pts.find(p => p.resets_at === end);
-      return slope({ t: end - LENGTH[key], pct: 0 }, first, from, to);
-    }).filter(line => line.length);
+    return byWindow(points(S, key))
+      .map(({ end, own }) => slope({ t: end - LENGTH[key], pct: 0 }, own[0], from, to))
+      .filter(line => line.length);
   }
 
   // The part of the straight line from a to b between from and to.
@@ -87,9 +97,9 @@
 
   // Each window runs from its reset minus its length to its reset, as high as its peak; its fill is the line inside it.
   function windows(S, key, from, to) {
-    const lines = segments(S, key, from, to), pts = points(S, key);
-    return [...new Set(pts.map(p => p.resets_at))]
-      .map(end => ({ start: end - LENGTH[key], end, peak: Math.max(...pts.filter(p => p.resets_at === end).map(p => p.pct)) }))
+    const lines = segments(S, key, from, to);
+    return byWindow(points(S, key))
+      .map(({ end, own }) => ({ start: end - LENGTH[key], end, peak: Math.max(...own.map(p => p.pct)) }))
       .filter(w => w.end > from && w.start < to)
       .map(w => ({ ...w, fill: lines.map(line => clip(line, w.start, w.end)).filter(l => l.length) }));
   }
