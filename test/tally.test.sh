@@ -157,7 +157,11 @@ check "a renamed session's rows carry its last title, its subagents' rows too" '
 printf '{"type":"custom-title","customTitle":"Newer name","sessionId":"s12"}\n' >> "$TMP/claude/projects/t/s12.jsonl"
 ./tally
 check "a rename after the tally moves the rows instead of adding a second set" 'Newer name|Newer name|Newer name' "$(g '.title')"
-check "a cache from before the session fields is read again" "yes" "$(jq -c 'del(.agent)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE" && ./tally && head -1 "$CACHE" | jq -e 'has("agent")' >/dev/null && echo yes || echo no)"
+# a run without a terminal writes its entrypoint on every line
+msg h1 "$HOME/Workspace/g" 2026-09-30T17:00:00.000Z claude-opus-5-5 4 | sed 's/^{/{"entrypoint":"sdk-cli",/' > "$TMP/claude/projects/t/s13.jsonl"
+./tally
+check "a headless run's row names its entrypoint, one without has none" 'sdk-cli|-' "$(rows 'select(.project == "~/Workspace/g" and .model == "claude-opus-5-5") | .entry // "-"' | tr -d '"' | sort -r | paste -sd '|' -)"
+check "a cache from before the session fields is read again" "yes" "$(jq -c 'del(.entry)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE" && ./tally && head -1 "$CACHE" | jq -e 'has("entry")' >/dev/null && echo yes || echo no)"
 
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"

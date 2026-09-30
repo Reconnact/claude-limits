@@ -136,11 +136,12 @@
     return (r.speed === 'fast' ? 2 : 1) * (r.input * input + r.cache_write_5m * input * 1.25 + r.cache_write_1h * input * 2 + r.cache_read * read + r.output * output) / 1e6;
   }
 
-  // The table's row name per split: a folder, an agent, a session by its title or else its folder.
+  // The table's row name per split: a folder, an agent, a session by its title or else its folder, the entrypoint of the run.
   const SPLITS = {
     folder: r => r.project,
     agent: r => r.agent || 'main session',
     session: r => r.title || r.project,
+    source: r => r.entry || '?',
   };
 
   // Rows are hours, so an hour that overlaps the range counts whole.

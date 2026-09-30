@@ -8,7 +8,7 @@
 
 - **At a glance.** A pie in the menu bar fills up with the 5-hour window. One click shows all three limits and when they reset.
 - **With history.** Every window on a chart, from the last 5 hours to everything ever recorded, so you see how fast a week fills up.
-- **With a price tag.** Tokens per folder, agent or session, and what they would cost on the API.
+- **With a price tag.** Tokens per folder, agent, session or source, and what they would cost on the API.
 - **No polling.** Claude Code's status line records the limits on every turn you take.
 
 <table>
@@ -71,7 +71,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in instead of a line; beyond 7 days the 5 h windows are left out
 - "as of" is the last check, which is every Claude Code turn; after 30 minutes without one it shows its age in full contrast
-- a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, by agent or by session (`?by=folder`, `agent`, `session`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder
+- a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, agent, session or source (`?by=folder`, `agent`, `session`, `source`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder, Source is the entrypoint of the run, `cli` for a terminal and `sdk-cli` for `claude -p`
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
 - `?theme=light` or `dark` overrides the system appearance; `Open page` passes the setting
@@ -146,7 +146,7 @@ git -C ~/claude-limits reset --keep origin/main
 - every check also overwrites `<user>-checked.js` with its time, a snapshot without values, so "as of" moves when the numbers do not
 - a data file is a list of `S.push({...});` lines, and `sources.js` lists the files -> a page opened from disk may load a script, but not fetch or list files
 - the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
-- in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, session, agent and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a session's folder is the one it started in, its title the last `/rename`, a subagent's kind comes from the `.meta.json` next to its transcript; none of that is documented, so a Claude Code release may change it; a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts; the one exception is the single recount after the update that changed which folder a session counts for, where only the transcripts stand for every hour they still cover
+- in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, session, agent, entrypoint and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a session's folder is the one it started in, its title the last `/rename`, a subagent's kind comes from the `.meta.json` next to its transcript; none of that is documented, so a Claude Code release may change it; a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts; the one exception is the single recount after the update that changed which folder a session counts for, where only the transcripts stand for every hour they still cover
 - the API price is computed on the page from the prices in `limits.js`, fast mode at double; a model without a price is named under the table
 - once a day `collect` starts `update` in the background: with `.auto-update` in the clone, it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed
 

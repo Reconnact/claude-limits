@@ -16,7 +16,7 @@ touch "$TMP.stamp"
 # a cache from before a field tally now writes lacks it on every line: read everything again, and replace the rows it built without it
 # the marker stays until the new table is in place, so a run that stops half-way leaves the rebuild to the next one
 MARK="$DIR/.$ME-rebuild"
-if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start") and has("agent") and has("title")' >/dev/null 2>&1; then touch "$MARK"; rm -f "$STAMP"; : > "$CACHE"; fi
+if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start") and has("agent") and has("title") and has("entry")' >/dev/null 2>&1; then touch "$MARK"; rm -f "$STAMP"; : > "$CACHE"; fi
 if [ -f "$MARK" ]; then REBUILD=true; else REBUILD=false; fi
 [ -f "$STAMP" ] && [ -f "$CACHE" ] || { rm -f "$STAMP"; : > "$CACHE"; }
 find "$PROJECTS" -name '*.jsonl' > "$TMP.all"
@@ -44,6 +44,7 @@ if [ -f "$STAMP" ]; then find "$PROJECTS" -name '*.jsonl' -newer "$STAMP" > "$TM
         start: ($start[0][.file] // .j.cwd),
         title: $title[0][.file],
         agent: $agent[0][.file],
+        entry: .j.entrypoint,
         at: .j.timestamp,
         id: .j.message.id,
         model: .j.message.model,
@@ -69,7 +70,7 @@ jq -n -c --rawfile all "$TMP.all" --rawfile changed "$TMP.changed" '
 OLD="$FILE"; [ -f "$OLD" ] || { : > "$TMP.old"; OLD="$TMP.old"; }
 jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
-  def key: "\(.hour)|\(.project)|\(.session)|\(.agent)|\(.model)|\(.speed)";
+  def key: "\(.hour)|\(.project)|\(.session)|\(.agent)|\(.entry)|\(.model)|\(.speed)";
   def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
   def fields: ["input", "cache_write_5m", "cache_write_1h", "cache_read", "output"];
 
@@ -81,7 +82,7 @@ jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   | [$lines | group_by(.id)[] | . as $g | $g[0] + (fields | map(. as $f | {($f): ($g | map(.[$f]) | max)}) | add)] as $messages
   | [$messages | map(.project = ($project[.session] | home) | .title = $title[.session] | .session |= sub(".*/"; "")) | group_by(key)[]
       | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model, session: .[0].session}
-        + (.[0] | {speed, agent, title} | with_entries(select(.value != null)))
+        + (.[0] | {speed, agent, title, entry} | with_entries(select(.value != null)))
         + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
   # Claude Code deletes transcripts after 30 days, so a row never shrinks
   | ($new | map({(.hour | tostring): true}) | add // {}) as $hours
