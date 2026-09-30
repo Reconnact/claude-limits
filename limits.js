@@ -4,6 +4,7 @@
   const DAY = 24 * 3600;
   const GAP = DAY;
   const KEYS = ['five_hour', 'seven_day', 'fable'];
+  const LENGTH = { five_hour: 5 * 3600, seven_day: 7 * DAY, fable: 7 * DAY };
   // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h.
   const PRICES = {
     'claude-fable-5-1': [10, 50, 0.25],
@@ -76,6 +77,23 @@
       start = Math.max(start, from);
       return [{ t: start, pct: at(start) }, ...steps.filter(p => p.t > start && p.t <= end), { t: end, pct: at(end) }];
     });
+  }
+
+  // The part of a stepped line between a and b.
+  function clip(line, a, b) {
+    const start = Math.max(a, line[0].t), end = Math.min(b, line[line.length - 1].t);
+    if (start >= end) return [];
+    const at = t => line.filter(p => p.t <= t).pop().pct;
+    return [{ t: start, pct: at(start) }, ...line.filter(p => p.t > start && p.t < end), { t: end, pct: at(end) }];
+  }
+
+  // Each window runs from its reset minus its length to its reset; its fill is the line inside it.
+  function windows(S, key, from, to) {
+    const lines = segments(S, key, from, to);
+    return [...new Set(points(S, key).map(p => p.resets_at))]
+      .map(end => ({ start: end - LENGTH[key], end }))
+      .filter(w => w.end > from && w.start < to)
+      .map(w => ({ ...w, fill: lines.map(line => clip(line, w.start, w.end)).filter(l => l.length) }));
   }
 
   function path(line, from, to, w, h) {
@@ -162,6 +180,20 @@
       doc.getElementById(`line-${key}`).setAttribute('d', d);
     }
 
+    const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
+    const frames = doc.getElementById('frames');
+    const x = t => Math.round((t - from) / (now - from) * 7000) / 10;
+    const el = (name, attrs) => {
+      const e = doc.createElementNS('http://www.w3.org/2000/svg', name);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      return e;
+    };
+    frames.setAttribute('class', framed);
+    frames.replaceChildren(...windows(S, framed, from, now).flatMap(w => [
+      ...w.fill.map(line => el('path', { class: 'fill', d: `${path(line, from, now, 700, 160)}V160H${x(line[0].t)}Z` })),
+      el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 0, width: x(Math.min(w.end, now)) - x(Math.max(w.start, from)), height: 160 }),
+    ]));
+
     const labels = doc.getElementById('days');
     const span = (now - from) / DAY;
     // a day or less gets hour ticks, anything longer day ticks
@@ -189,6 +221,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, segments, path, until, cost, projects, tokens, dollars, render };
+  root.Limits = { points, current, segments, clip, windows, path, until, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

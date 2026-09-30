@@ -257,3 +257,25 @@ test('tokens: short units', () => {
 test('dollars: two decimals, thousands separated', () => {
   assert.deepEqual([0, 3.456, 12345.6].map(Limits.dollars), ['$0.00', '$3.46', '$12,345.60']);
 });
+
+test('clip: the part of a stepped line inside the window, its edges at the value held there', () => {
+  const line = [{ t: T0, pct: 10 }, { t: T0 + 2 * H, pct: 30 }, { t: T0 + 4 * H, pct: 50 }];
+  assert.deepEqual(Limits.clip(line, T0 + H, T0 + 3 * H), [{ t: T0 + H, pct: 10 }, { t: T0 + 2 * H, pct: 30 }, { t: T0 + 3 * H, pct: 30 }]);
+  assert.deepEqual(Limits.clip(line, T0 + 5 * H, T0 + 6 * H), []);
+});
+
+test('windows: one per reset, starting one window length before it', () => {
+  const S = [
+    snap(T0 + 100, 'hw', [10, T0 + 5 * H], null),
+    snap(T0 + 200, 'hw', [20, T0 + 5 * H], null),
+    snap(T0 + 6 * H, 'hw', [5, T0 + 11 * H], null),
+  ];
+  const w = Limits.windows(S, 'five_hour', T0, T0 + 7 * H);
+  assert.deepEqual(w.map(w => [w.start, w.end]), [[T0, T0 + 5 * H], [T0 + 6 * H, T0 + 11 * H]]);
+  assert.deepEqual(w[0].fill[0].map(p => p.pct), [10, 20, 0]);
+});
+
+test('windows: a weekly window outside the range is left out', () => {
+  const S = [snap(T0, 'hw', null, [40, T0 + DAY]), snap(T0 + 10 * DAY, 'hw', null, [5, T0 + 14 * DAY])];
+  assert.deepEqual(Limits.windows(S, 'seven_day', T0 + 9 * DAY, T0 + 11 * DAY).map(w => w.end), [T0 + 14 * DAY]);
+});

@@ -40,6 +40,10 @@
   svg { display: block; width: 100%; height: clamp(220px, 44vh, 480px); overflow: visible; }
   .grid { stroke: var(--rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
   path { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+  #frames.five_hour { --line: var(--five_hour); }
+  #frames.seven_day { --line: var(--seven_day); }
+  .frame { fill: none; stroke: var(--line); stroke-opacity: .5; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #frames .fill { fill: var(--line); fill-opacity: .16; stroke: none; }
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
@@ -84,6 +88,7 @@
       <line class="grid" x1="0" x2="700" y1="0" y2="0"/>
       <line class="grid" x1="0" x2="700" y1="80" y2="80"/>
       <line class="grid" x1="0" x2="700" y1="160" y2="160"/>
+      <g id="frames"></g>
       <path id="line-five_hour"/>
       <path id="line-seven_day"/>
       <path id="line-fable"/>

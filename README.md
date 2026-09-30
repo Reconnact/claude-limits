@@ -39,6 +39,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - a tile per limit with the time to its reset; from 80 % the number turns yellow
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - more than a day without a snapshot is a break in the line, not 0 %
+- the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, with its usage filled in
 - a page older than 30 minutes greys out and shows its age
 - a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
