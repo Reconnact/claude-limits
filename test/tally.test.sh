@@ -98,6 +98,25 @@ mv "$TMP/oldout" "$OUT"
 check "an old cache, the row under the first reply's folder goes" '"~/Workspace/b"' "$(rows 'select(.model == "claude-sonnet-5-5") | .project')"
 check "an old cache, an hour without transcripts stays" "8" "$(rows 'select(.hour == 1788000000) | .output')"
 
+# a session that moved with cd shared its old row with one that really started there
+mkdir -p "$TMP/claude/projects/r"
+{
+  printf '{"type":"user","cwd":"%s/Workspace/d","timestamp":"2026-09-30T14:00:00.000Z"}\n' "$HOME"
+  msg d1 "$HOME/Workspace/e" 2026-09-30T14:00:05.000Z claude-opus-4-8 5
+} > "$TMP/claude/projects/r/s8.jsonl"
+{
+  printf '{"type":"user","cwd":"%s/Workspace/e","timestamp":"2026-09-30T14:05:00.000Z"}\n' "$HOME"
+  msg d2 "$HOME/Workspace/e" 2026-09-30T14:10:00.000Z claude-opus-4-8 7
+} > "$TMP/claude/projects/r/s9.jsonl"
+./tally
+jq -c 'del(.start)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE"
+sed 's/^T.push(//; s/);$//' "$OUT" \
+  | jq -c 'select(.project != "~/Workspace/d") | if .project == "~/Workspace/e" then .output = 12 else . end' \
+  | sed 's/^/T.push(/; s/$/);/' > "$TMP/oldout" && mv "$TMP/oldout" "$OUT"
+./tally
+check "an old cache, a row shared with a moved session loses its tokens" "7" "$(rows 'select(.project == "~/Workspace/e") | .output')"
+check "an old cache, the moved session gets its row back" "5" "$(rows 'select(.project == "~/Workspace/d") | .output')"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally
