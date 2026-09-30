@@ -60,6 +60,7 @@ check "menu without data" "" "$(menu)"
 line $((NOW - 60)) 24 $((NOW + 3600)) > "$TMP/hw.js"
 printf 'S.push({"ts":%s,"source":"hw","fable":{"used_percentage":76,"resets_at":%s}});\n' "$NOW" $((NOW + 3600)) >> "$TMP/hw.js"
 check "menu has every limit" "5 h 24 %|7 d 69 %|Fable 76 %" "$(menu)"
+check "a row is name, value and pace, no reset" "3" "$(./menubar/claude-limits-bar --menu | head -1 | awk -F'\t' '{print NF}')"
 
 line $((NOW - 3 * 3600)) 40 $((NOW + 3600)) > "$TMP/hw.js"
 check "menu shows the age of an old snapshot" "5 h 40 %|7 d 69 %|last snapshot 3 h ago" "$(menu)"
@@ -70,16 +71,15 @@ rm "$TMP/hw-checked.js"
 
 # a busy window: the pace of the last hour fills it before the reset
 { line $((NOW - 7000)) 12 $((NOW + 3 * 3600)); line $((NOW - 3500)) 30 $((NOW + 3 * 3600)); line $((NOW - 60)) 58 $((NOW + 3 * 3600)); } > "$TMP/hw.js"
-check "a pace that fills the window before its reset says when" "full" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4 | cut -c1-4)"
-check "a weekly pace that does not shows its rate per day" "0 %/d" "$(./menubar/claude-limits-bar --menu | sed -n 2p | cut -f4)"
+check "a pace that fills the window before its reset says when" "full" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f3 | cut -c1-4)"
+check "a weekly pace that does not shows its rate per day" "0 %/d" "$(./menubar/claude-limits-bar --menu | sed -n 2p | cut -f3)"
 line $((NOW - 60)) 5 $((NOW + 5 * 3600 - 60)) > "$TMP/hw.js"
-check "a lone first snapshot has no rise yet" "0.0 %/h" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4)"
+check "a lone first snapshot has no rise yet" "0.0 %/h" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f3)"
 ./menubar/claude-limits-bar --panel "$TMP/panel.png"
 check "the panel renders to a file" "yes" "$([ -s "$TMP/panel.png" ] && echo yes || echo no)"
 
 settings() { printf '%s' "$1" > "$CLAUDE_LIMITS_SETTINGS"; }
 title() { ./menubar/claude-limits-bar --title; }
-reset_text() { ./menubar/claude-limits-bar --menu | head -1 | cut -f3; }
 
 line $((NOW - 60)) 24 $((NOW + 3600)) > "$TMP/hw.js"
 printf 'S.push({"ts":%s,"source":"hw","fable":{"used_percentage":76,"resets_at":%s}});\n' "$NOW" $((NOW + 3600)) >> "$TMP/hw.js"
@@ -89,9 +89,9 @@ settings '{"menuBarLimit":"highest"}'
 check "settings: menu bar shows the highest limit" "76%" "$(bar)"
 settings '{'
 check "settings: broken file means defaults" "24%" "$(bar)"
-settings '{"menuBarLimit":"weekly","resetFormat":"countdown"}'
+settings '{"menuBarLimit":"weekly","menuBarText":"reset","resetFormat":"countdown"}'
 check "settings: a bad value keeps the other keys" "24%" "$(bar)"
-check "settings: countdown in the panel, as on the page" "resets in 1 h" "$(reset_text)"
+check "settings: countdown in the menu bar, as on the page" "in 1 h" "$(title)"
 settings '{}'
 check "settings: no menu bar text by default" "" "$(title)"
 settings '{"menuBarText":"percent"}'
@@ -104,10 +104,10 @@ settings '{"panelLimits":["fable","nope"]}'
 check "settings: unknown panel row dropped" "Fable 76 %" "$(menu)"
 
 printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":24,"resets_at":%s}});\n' $((NOW - 60)) $((NOW + 3 * 86400 + 4 * 3600 + 30)) > "$TMP/hw.js"
-settings '{"resetFormat":"countdown"}'
-check "settings: countdown in days" "resets in 3 d 4 h" "$(reset_text)"
+settings '{"menuBarText":"reset","resetFormat":"countdown"}'
+check "settings: countdown in days" "in 3 d 4 h" "$(title)"
 printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":24,"resets_at":%s}});\n' $((NOW - 60)) $((NOW + 42 * 60)) > "$TMP/hw.js"
-check "settings: countdown under an hour" "resets in 42 min" "$(reset_text)"
+check "settings: countdown under an hour" "in 42 min" "$(title)"
 
 # notifications: once when a limit reaches the yellow level, once when its pace fills the window before the reset
 alerts() { ./menubar/claude-limits-bar --alerts | cut -f1 | paste -sd '|' -; }

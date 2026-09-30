@@ -100,7 +100,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar with the same tick as on the page, its reset time and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
@@ -126,7 +126,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `menuBarLimit` | `five_hour`, `seven_day`, `fable`, `highest` | `five_hour` | the limit in the menu bar; `highest` is the one closest to full |
 | `menuBarIcon` | `pie`, `bar`, `none` | `pie` | the icon |
 | `menuBarText` | `none`, `percent`, `reset`, `both` | `none` | text after the icon, e.g. `23% · in 2 h 13 min` |
-| `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel, the menu bar and the page from `Open page` |
+| `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the menu bar, the notifications and the page from `Open page` |
 | `chartLine` | `steps`, `smooth` | `steps` | the chart on the page from `Open page`: a step at each snapshot, or a straight line from one to the next |
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |

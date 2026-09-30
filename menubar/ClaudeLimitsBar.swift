@@ -16,10 +16,10 @@ func themed(_ light: Int, _ dark: Int) -> NSColor {
     NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark) : rgb(light) }
 }
 // span: the pace is the rise over the last hour, over the last day for the weekly limits
-let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, length: Double, span: Double, color: NSColor)] = [
-    ("five_hour", "5 h", \.five_hour, 5 * 3600, 3600, themed(0x1f6fe0, 0x3b8eff)),
-    ("seven_day", "7 d", \.seven_day, 7 * 86400, 86400, themed(0x8b3fd9, 0xba66ff)),
-    ("fable", "Fable", \.fable, 7 * 86400, 86400, themed(0xb35f0a, 0xe9973f)),
+let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, span: Double, color: NSColor)] = [
+    ("five_hour", "5 h", \.five_hour, 3600, themed(0x1f6fe0, 0x3b8eff)),
+    ("seven_day", "7 d", \.seven_day, 86400, themed(0x8b3fd9, 0xba66ff)),
+    ("fable", "Fable", \.fable, 86400, themed(0xb35f0a, 0xe9973f)),
 ]
 let warnColor = themed(0x8f8a14, 0xe0de71)
 
@@ -156,13 +156,12 @@ func menuBarTitle(_ all: [Snapshot], _ s: Settings, now: Double) -> String {
     }
 }
 
-func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, elapsed: Double?, text: String, pace: String?, color: NSColor)] {
+func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, text: String, pace: String?, color: NSColor)] {
     s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
-        let elapsed = w.resets_at.map { min(1, max(0, (now - ($0 - l.length)) / l.length)) }
         let p = pace(all, l.key, span: l.span, now: now)
         let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? (l.span == 3600 ? "\(String(format: "%.1f", $0.rate)) %/h" : "\(Int(($0.rate * 24).rounded())) %/d") }
-        return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", text, l.color)
+        return (w.pct, "\(l.name)\t\(w.pct) %", text, l.color)
     }
 }
 
@@ -231,19 +230,13 @@ func bar(_ pct: Int?, _ color: NSColor?) -> NSImage {
     return image
 }
 
-// the tick is the share of the window that has passed: a fill past it is faster than the window allows; it crosses the bar, as on the page
-func meter(_ pct: Int, _ elapsed: Double?, _ color: NSColor) -> NSImage {
-    NSImage(size: NSSize(width: 40, height: 10), flipped: false) { rect in
-        let bar = NSRect(x: 0, y: 2, width: rect.width, height: 6)
+func meter(_ pct: Int, _ color: NSColor) -> NSImage {
+    NSImage(size: NSSize(width: 40, height: 6), flipped: false) { rect in
         NSColor.tertiaryLabelColor.setFill()
-        NSBezierPath(roundedRect: bar, xRadius: 3, yRadius: 3).fill()
+        NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
         color.setFill()
-        let filled = NSRect(x: 0, y: bar.minY, width: bar.width * CGFloat(min(pct, 100)) / 100, height: bar.height)
+        let filled = NSRect(x: 0, y: 0, width: rect.width * CGFloat(min(pct, 100)) / 100, height: rect.height)
         NSBezierPath(roundedRect: filled, xRadius: 3, yRadius: 3).fill()
-        if let elapsed {
-            NSColor.labelColor.setFill()
-            NSBezierPath(roundedRect: NSRect(x: min(rect.width - 1.5, rect.width * CGFloat(elapsed) - 0.75), y: 0, width: 1.5, height: rect.height), xRadius: 0.75, yRadius: 0.75).fill()
-        }
         return true
     }
 }
@@ -253,16 +246,14 @@ func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?
     var views: [NSView] = []
     let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     let rows = rows(all, s, now: now)
-    // the pace column starts after the widest reset text, whatever the reset format
-    let reset = rows.map { ($0.text.components(separatedBy: "\t").last! as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
     let style = NSMutableParagraphStyle()
-    style.tabStops = [50, 100, 100 + reset + 16].map { NSTextTab(textAlignment: .left, location: $0) }
+    style.tabStops = [50, 100, 150].map { NSTextTab(textAlignment: .left, location: $0) }
     for row in rows {
         let line = row.text + (row.pace.map { "\t" + $0 } ?? "")
         let text = NSTextField(labelWithAttributedString: NSAttributedString(string: line, attributes: [.font: font, .paragraphStyle: style]))
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.required, for: .horizontal)
-        views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.elapsed, row.color)), text]))
+        views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.color)), text]))
     }
     if let age = age(all, now: now) {
         let label = NSTextField(labelWithString: age)
