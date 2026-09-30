@@ -212,6 +212,14 @@ test('path: no points, no path', () => {
   assert.equal(Limits.path([], 0, 100, 200, 100), '');
 });
 
+test('resets: time left by default, the clock time or both from the settings', () => {
+  assert.equal(Limits.resets(T0 + 90 * 60, T0), 'resets in 1 h 30 min');
+  assert.equal(Limits.resets(T0 + 90 * 60, T0, 'countdown'), 'resets in 1 h 30 min');
+  assert.match(Limits.resets(T0 + 90 * 60, T0, 'time'), /^resets (\w{3} )?\d\d:\d\d$/);
+  assert.match(Limits.resets(T0 + 90 * 60, T0, 'both'), /^resets (\w{3} )?\d\d:\d\d · in 1 h 30 min$/);
+  assert.match(Limits.resets(T0 + 3 * 24 * H, T0, 'time'), /^resets \w{3} \d\d:\d\d$/);
+});
+
 test('until: time left in words', () => {
   assert.equal(Limits.until(T0 + 90 * 60, T0), '1 h 30 min');
   assert.equal(Limits.until(T0 + 40 * 60, T0), '40 min');

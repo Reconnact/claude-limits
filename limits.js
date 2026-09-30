@@ -99,6 +99,17 @@
     return parts.filter(([n], i) => n || !i).map(([n, unit]) => `${n} ${unit}`).join(' ');
   }
 
+  function clock(t, now) {
+    const d = new Date(t * 1000), pad = n => String(n).padStart(2, '0');
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return d.toDateString() === new Date(now * 1000).toDateString() ? time : `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${time}`;
+  }
+
+  function resets(t, now, format = 'countdown') {
+    const left = `in ${until(t, now)}`;
+    return `resets ${format === 'time' ? clock(t, now) : format === 'both' ? `${clock(t, now)} · ${left}` : left}`;
+  }
+
   function cost(r) {
     const p = PRICES[r.model.replace(/-\d{8}$/, '')];
     if (!p) return null;
@@ -144,7 +155,7 @@
     doc.getElementById('unpriced').textContent = unpriced.length ? `No price for ${unpriced.join(', ')}` : '';
   }
 
-  function render(doc, S, now, days, T = []) {
+  function render(doc, S, now, days, T = [], resetFormat) {
     const main = doc.querySelector('main');
     const c = current(S, now);
     if (!c) {
@@ -157,9 +168,9 @@
     for (const key of KEYS) {
       const el = doc.getElementById(key), w = c[key];
       el.querySelector('.pct').textContent = w ? `${Math.round(w.pct)} %` : '–';
-      el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset' : `resets in ${until(w.resets_at, now).replace(/ /g, '\u00a0')}`;
+      el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset'
+        : resets(w.resets_at, now, resetFormat).split(' · ').map(p => p.replace(/ /g, '\u00a0')).join(' · ');
       el.querySelector('.bar i').style.width = `${w ? Math.min(w.pct, 100) : 0}%`;
-      el.classList.toggle('warn', !!w && w.pct >= 80);
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
@@ -212,6 +223,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, segments, clip, windows, path, until, cost, projects, tokens, dollars, render };
+  root.Limits = { points, current, segments, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

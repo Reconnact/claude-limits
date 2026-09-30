@@ -86,11 +86,13 @@ func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_a
 
 func title(_ pct: Int?) -> String { pct.map { "\($0)%" } ?? "–" }
 
+// as until() on the page
 func countdown(_ t: Double, now: Double) -> String {
-    let min = max(0, Int(t - now) / 60)
-    if min < 60 { return "\(min) min" }
-    if min < 24 * 60 { return "\(min / 60) h \(min % 60) min" }
-    return "\(min / (24 * 60)) d \(min % (24 * 60) / 60) h"
+    let min = max(0, Int(((t - now) / 60).rounded(.up)))
+    let d = min / 1440, h = min % 1440 / 60, m = min % 60
+    if d > 0 { return h > 0 ? "\(d) d \(h) h" : "\(d) d" }
+    if h > 0 { return m > 0 ? "\(h) h \(m) min" : "\(h) h" }
+    return "\(m) min"
 }
 
 func when(_ t: Double?, _ format: String, now: Double) -> String {
@@ -197,12 +199,16 @@ if CommandLine.arguments.contains("--menu") {
 let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
     .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
 
-// the app has no menu bar to carry ⌘W and ⌘Q; ⌘Q only closes the window, Quit in the panel ends the app
+// the app has no menu bar to carry ⌘W, ⌘Q and ⌘,; ⌘Q only closes the window, Quit in the panel ends the app
 final class PageWindow: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-           ["w", "q"].contains(event.charactersIgnoringModifiers) {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else { return super.performKeyEquivalent(with: event) }
+        if ["w", "q"].contains(event.charactersIgnoringModifiers) {
             performClose(nil)
+            return true
+        }
+        if event.charactersIgnoringModifiers == "," {
+            bar.openSettings()
             return true
         }
         return super.performKeyEquivalent(with: event)
@@ -399,7 +405,9 @@ final class Bar: NSObject {
     // the page loads the data files from /Users/Shared as scripts, outside the repo
     @objc func open() {
         popover.performClose(nil)
-        (pageWindow.contentView as? WKWebView)?.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        // the page cannot read ~/.config, so the reset format comes along as ?reset=
+        let url = URL(string: "?reset=\(store.settings.resetFormat)", relativeTo: page)!.absoluteURL
+        (pageWindow.contentView as? WKWebView)?.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
         if !pageWindow.isVisible {
             pageWindow.setContentSize(NSSize(width: 900, height: 700))
             pageWindow.center()

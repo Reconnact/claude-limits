@@ -7,7 +7,7 @@
     --bg: #1c2127; --track: #242a31; --rule: #313842; --edge: #3a424c;
     --text: #e6e6e6; --text-2: #a8b0bb; --text-3: #8a93a0;
     --five_hour: #3b8eff; --seven_day: #ba66ff; --fable: #e9973f;
-    --warn: #e0de71; --focus: #981aff;
+    --focus: #981aff;
   }
   html { background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
@@ -25,8 +25,6 @@
   .reset { margin: .2em 0 1em; min-height: 1.5em; font-size: clamp(.8rem, 1.6vw, .95rem); color: var(--text-2); }
   .bar { height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--line); }
-  .warn .pct { color: var(--warn); }
-  .warn .bar i { background: var(--warn); }
 
   .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: clamp(40px, 7vw, 80px); }
   #asof { font-size: .85rem; color: var(--text-3); }
@@ -122,7 +120,7 @@ const load = (src, done) => {
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T);
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined);
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
   const files = names.flatMap(name => [`${name}.js`, `${name}-tokens.js`]);

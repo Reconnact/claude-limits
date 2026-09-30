@@ -36,13 +36,14 @@ Run `install` once in each account. Every account writes its own file into `/Use
 
 ## The page
 
-- a tile per limit with the time to its reset; from 80 % the number turns yellow
+- a tile per limit with the time to its reset
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in; beyond 7 days the 5 h line is left out
 - a page older than 30 minutes greys out and shows its age
 - a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
+- `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
 
 Reload for fresh numbers.
 
@@ -71,7 +72,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `menuBarLimit` | `five_hour`, `seven_day`, `fable`, `highest` | `five_hour` | the limit in the menu bar; `highest` is the one closest to full |
 | `menuBarIcon` | `pie`, `bar`, `none` | `pie` | the icon |
 | `menuBarText` | `none`, `percent`, `reset`, `both` | `none` | text after the icon, e.g. `23% · in 2 h 13 min` |
-| `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel and the menu bar |
+| `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel, the menu bar and the page from `Open page` |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
