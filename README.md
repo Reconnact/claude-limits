@@ -34,6 +34,14 @@ The buttons above the chart switch between 5 hours, 1 day, 7 days, 30 days and e
 
 `?dir=<url>` reads the data from another folder.
 
+## Menu bar
+
+```sh
+make install-menubar
+```
+
+Shows the 5 h percentage in the menu bar, from the newest `hw` or `reconnact` snapshot; a click opens `index.html`. A LaunchAgent starts it at login and it re-reads the files every minute. Per macOS account. `make uninstall-menubar` removes it.
+
 ## Old data
 
 ```sh
