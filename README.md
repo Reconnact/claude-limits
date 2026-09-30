@@ -131,7 +131,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
-| `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace of the last hour would fill it before its reset; macOS asks once whether to allow them |
+| `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace of the last hour would fill it before its reset; shown as from Script Editor, macOS asks once whether to allow those |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
 
 A missing file or key, or a value not in the list, takes the default. With no icon and no text the pie shows.
@@ -184,7 +184,7 @@ git -C ~/claude-limits reset --keep origin/main
 - in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, session, agent, entrypoint and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a session's folder is the one it started in, its title the last `/rename`, a subagent's kind comes from the `.meta.json` next to its transcript; none of that is documented, so a Claude Code release may change it; a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts; the one exception is the single recount after the update that changed which folder a session counts for, where only the transcripts stand for every hour they still cover
 - the API price is computed on the page from the prices in `limits.js`, fast mode at double; a model without a price is named under the table
 - once a day `collect` starts `update` in the background: with `.auto-update` in the clone, it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed
-- `make install-menubar` copies the built item into `~/Applications/Claude limits.app` and signs it ad hoc: macOS lets only a signed app send notifications; the app asks for that once
+- the item notifies through `osascript`, so the notification says Script Editor: macOS lets only an app with a signing identity notify in its own name, and a clone built with `swiftc` has none; `menubar/claude-limits-bar --notify-test` sends one
 
 **That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
 

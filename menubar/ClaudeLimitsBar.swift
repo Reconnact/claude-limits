@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UserNotifications
 import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
@@ -174,6 +173,15 @@ func alerts(_ all: [Snapshot], _ s: Settings, now: Double) -> [(id: String, titl
     }
 }
 
+// through osascript, shown as from Script Editor: macOS lets only an app with a signing identity notify in its own name, and a clone has none
+func notify(_ title: String, _ body: String) {
+    let quote = { (s: String) in "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\"" }
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    p.arguments = ["-e", "display notification \(quote(body)) with title \(quote(title))"]
+    try? p.run()
+}
+
 func age(_ all: [Snapshot], now: Double) -> String? {
     guard let ts = all.map(\.ts).max(), now - ts > 30 * 60 else { return nil }
     let min = Int(now - ts) / 60
@@ -292,23 +300,10 @@ if CommandLine.arguments.contains("--menu") {
     age(all, now: now).map { print($0) }
     exit(0)
 }
-// asks for the permission and sends one notification, printing what the system answers
+// sends one notification the way the item does
 if CommandLine.arguments.contains("--notify-test") {
-    guard Bundle.main.bundleIdentifier != nil else { print("no app bundle: run it from ~/Applications/Claude limits.app"); exit(1) }
-    let center = UNUserNotificationCenter.current()
-    center.requestAuthorization(options: [.alert, .sound]) { ok, error in
-        print("authorization: \(ok)\(error.map { ", \($0.localizedDescription)" } ?? "")")
-        let content = UNMutableNotificationContent()
-        content.title = "Claude limits"
-        content.body = "notifications work"
-        center.add(UNNotificationRequest(identifier: "test", content: content, trigger: nil)) { error in
-            print("sent\(error.map { ", \($0.localizedDescription)" } ?? "")")
-            exit(0)
-        }
-    }
-    RunLoop.main.run(until: Date(timeIntervalSinceNow: 30))
-    print("no answer in 30 s")
-    exit(1)
+    notify("Claude limits", "notifications work")
+    exit(0)
 }
 if CommandLine.arguments.contains("--alerts") {
     alerts(snapshots(), Settings.load(), now: now).forEach { print("\($0.title)\t\($0.body)") }
@@ -328,14 +323,8 @@ if let i = CommandLine.arguments.firstIndex(of: "--panel"), i + 1 < CommandLine.
     exit(0)
 }
 
-// the installed app carries the clone's path in its Info.plist; the bare binary sits in the clone
-let repo = (Bundle.main.infoDictionary?["ClaudeLimitsRepo"] as? String).map { URL(fileURLWithPath: $0) }
-    ?? URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent()
-let page = repo.appendingPathComponent("index.html")
-if CommandLine.arguments.contains("--page") {
-    print(page.path)
-    exit(0)
-}
+let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+    .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
 
 // the app has no menu bar to carry ⌘W, ⌘Q and ⌘,; ⌘Q only closes the window, Quit in the panel ends the app
 final class PageWindow: NSWindow {
@@ -482,10 +471,6 @@ final class Bar: NSObject {
         item.button?.sendAction(on: .leftMouseDown)
         item.button?.imagePosition = .imageLeading
         store.changed = { [weak self] in self?.refresh(); self?.applySettings() }
-        // the notification center needs an app bundle; the tests run the bare binary
-        if store.settings.notify, Bundle.main.bundleIdentifier != nil {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        }
         refresh()
         applySettings()
         // ⌘Tab and the Dock list the app only while one of its windows is open
@@ -513,7 +498,7 @@ final class Bar: NSObject {
         let color = s.warnAt > 0 && (pct ?? 0) >= s.warnAt ? warnColor : nil
         for a in alerts(all, s, now: now) where !notified.contains(a.id) {
             notified.insert(a.id)
-            notify(a)
+            notify(a.title, a.body)
         }
         let text = menuBarTitle(all, s, now: now)
         let icon = s.menuBarIcon == "none" && text.isEmpty ? "pie" : s.menuBarIcon
@@ -526,14 +511,6 @@ final class Bar: NSObject {
             panel.view = content()
             panel.preferredContentSize = panel.view.fittingSize
         }
-    }
-
-    func notify(_ a: (id: String, title: String, body: String)) {
-        guard Bundle.main.bundleIdentifier != nil else { return }
-        let content = UNMutableNotificationContent()
-        content.title = a.title
-        content.body = a.body
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.id, content: content, trigger: nil))
     }
 
     // per window, not NSApp.appearance, so the menu bar item keeps the menu bar's look
