@@ -3,6 +3,7 @@ test: menubar
 	bash test/collect.test.sh
 	bash test/import.test.sh
 	bash test/fetch.test.sh
+	bash test/now.test.sh
 	bash test/tally.test.sh
 	bash test/update.test.sh
 	bash test/menubar.test.sh

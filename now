@@ -1,0 +1,16 @@
+#!/bin/bash
+# Prints the newest snapshot as JSON for scripts: each limit as in the data files, 0 with no reset once it passed, null when never recorded;
+# ts is the last check, age its seconds.
+# usage: now [--fresh]   --fresh asks the usage endpoint first, for a machine whose status line has not run
+DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
+[ "${1:-}" = --fresh ] && "$(dirname "$0")/fetch-usage"
+
+grep -h '^S.push(' "$DIR"/*.js 2>/dev/null | sed 's/^S.push(//; s/);$//' | jq -s --argjson now "$(date +%s)" '
+  # as on the page: the newest window and its highest value, a window resets_at within a minute is the same one
+  def window($k): [.[] | .[$k] | values] | if length == 0 then null else
+    (map(.resets_at) | max) as $newest
+    | (map(select($newest - .resets_at <= 60)) | max_by(.used_percentage)) as $w
+    | if $w.resets_at <= $now then {used_percentage: 0, resets_at: null} else $w end end;
+  (map(.ts) | max) as $ts
+  | {five_hour: window("five_hour"), seven_day: window("seven_day"), fable: window("fable"), ts: $ts, age: (if $ts then $now - $ts else null end)}
+'

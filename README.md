@@ -133,6 +133,20 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 
 A missing file or key, or a value not in the list, takes the default. With no icon and no text the pie shows.
 
+## For scripts
+
+`now` prints the newest snapshot as JSON, so a job can wait while the window is in use:
+
+```sh
+~/claude-limits/now
+```
+
+```json
+{ "five_hour": { "used_percentage": 24, "resets_at": 1790809200 }, "seven_day": { … }, "fable": { … }, "ts": 1790797815, "age": 42 }
+```
+
+A limit past its reset is `0` with `resets_at` null, one never recorded is null; `ts` is the last check, `age` its seconds. `now --fresh` asks the usage endpoint first, for a machine whose status line has not run. These keys stay.
+
 ## Updates
 
 To get the newest version:
@@ -170,7 +184,7 @@ git -C ~/claude-limits reset --keep origin/main
 
 **That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
 
-A headless run (`claude -p`) does not call the status line and records nothing.
+A headless run (`claude -p`) does not call the status line and records nothing; `now --fresh` records a snapshot on demand.
 
 ## Old data from Usage for Claude
 
