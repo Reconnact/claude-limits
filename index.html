@@ -57,10 +57,11 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   #frames .fill { fill: light-dark(color-mix(in srgb, var(--line) 22%, var(--bg)), color-mix(in srgb, var(--line) 75%, var(--bg))); stroke: none; }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
-  #ramp-five_hour { stroke: var(--five_hour); }
-  #ramp-seven_day { stroke: var(--seven_day); }
-  #ramp-fable { stroke: var(--fable); }
-  .ramp { stroke-dasharray: 3 4; }
+  #proj-five_hour { stroke: var(--five_hour); }
+  #proj-seven_day { stroke: var(--seven_day); }
+  #proj-fable { stroke: var(--fable); }
+  .dashed { stroke-dasharray: 3 4; }
+  #now { stroke: var(--text-3); }
   .axis { position: absolute; left: 0; margin: 0; font-size: .75rem; line-height: 1; color: var(--text-3); transform: translateY(calc(-100% - 5px)); }
   .axis.top { top: 0; }
   .axis.mid { top: calc(clamp(220px, 44vh, 480px) / 2); }
@@ -113,9 +114,10 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
       <g id="frames"></g>
       <path id="line-seven_day"/>
       <path id="line-fable"/>
-      <path id="ramp-five_hour" class="ramp"/>
-      <path id="ramp-seven_day" class="ramp"/>
-      <path id="ramp-fable" class="ramp"/>
+      <path id="proj-five_hour" class="dashed"/>
+      <path id="proj-seven_day" class="dashed"/>
+      <path id="proj-fable" class="dashed"/>
+      <line id="now" class="grid" y1="0" y2="160" visibility="hidden"/>
     </svg>
     <div id="days"></div>
   </figure>

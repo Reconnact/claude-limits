@@ -153,6 +153,26 @@ test('pace: the text under a limit', () => {
   assert.match(Limits.paceText({ rate: 40, full: T0 + 3 * H }, T0), /^at this pace full (\w{3} )?\d\d:\d\d · 40\.0 %\/h$/);
 });
 
+test('projection: none without a pace', () => {
+  const S = [snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 50 * 60, T0 + 5 * H), []);
+});
+
+test('projection: from now at the last value up to 100 % where the pace hits it', () => {
+  const S = [snap(T0 + H, 'hw', [20, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [60, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 5 * H), [{ t: T0 + 2 * H, pct: 60 }, { t: T0 + 3 * H, pct: 100 }]);
+});
+
+test('projection: on track it ends at the reset, at the value the pace reaches there', () => {
+  const S = [snap(T0 + H, 'hw', [5, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [10, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 5 * H), [{ t: T0 + 2 * H, pct: 10 }, { t: T0 + 5 * H, pct: 25 }]);
+});
+
+test('projection: cut at the end of the chart', () => {
+  const S = [snap(T0 + H, 'hw', [5, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [10, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.projection(S, 'five_hour', T0 + 2 * H, T0 + 3 * H), [{ t: T0 + 2 * H, pct: 10 }, { t: T0 + 3 * H, pct: 15 }]);
+});
+
 test('segments: the line ends where its window resets, the next window starts a new one', () => {
   const S = [
     snap(T0 + 100, 'reconnact', [80, T0 + 5 * H], null),
@@ -393,37 +413,6 @@ test('windows: a weekly window outside the range is left out', () => {
   assert.deepEqual(Limits.windows(S, 'seven_day', T0 + 9 * DAY, T0 + 11 * DAY).map(w => w.end), [T0 + 14 * DAY]);
 });
 
-test('ramps: from 0 % at the window start up to its first point', () => {
-  const S = [
-    snap(T0 + 4 * H, 'hw', [24, T0 + 5 * H], null),
-    snap(T0 + 4.5 * H, 'hw', [30, T0 + 5 * H], null),
-  ];
-  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), [[
-    { t: T0, pct: 0 },
-    { t: T0 + 4 * H, pct: 24 },
-  ]]);
-});
 
-test('ramps: one per window', () => {
-  const S = [
-    snap(T0 + H, 'hw', [10, T0 + 5 * H], null),
-    snap(T0 + 7 * H, 'hw', [20, T0 + 10 * H], null),
-  ];
-  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), [
-    [{ t: T0, pct: 0 }, { t: T0 + H, pct: 10 }],
-    [{ t: T0 + 5 * H, pct: 0 }, { t: T0 + 7 * H, pct: 20 }],
-  ]);
-});
 
-test('ramps: cut at the start of the range, at its height there', () => {
-  const S = [snap(T0 + 4 * H, 'hw', [40, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 + 2 * H, T0 + DAY), [[
-    { t: T0 + 2 * H, pct: 20 },
-    { t: T0 + 4 * H, pct: 40 },
-  ]]);
-});
 
-test('ramps: a first point at the window start has none', () => {
-  const S = [snap(T0, 'hw', [5, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), []);
-});

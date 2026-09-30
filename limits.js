@@ -93,19 +93,13 @@
     }).filter(line => line.length);
   }
 
-  // Before a window's first point only its start at 0 % is known: a straight line up to that point, drawn dashed.
-  function ramps(S, key, from, to) {
-    return byWindow(points(S, key))
-      .map(({ end, own }) => slope({ t: end - LENGTH[key], pct: 0 }, own[0], from, to))
-      .filter(line => line.length);
-  }
-
-  // The part of the straight line from a to b between from and to.
-  function slope(a, b, from, to) {
-    const start = Math.max(from, a.t), end = Math.min(to, b.t);
-    if (start >= end) return [];
-    const at = t => a.pct + (b.pct - a.pct) * (t - a.t) / (b.t - a.t);
-    return [{ t: start, pct: at(start) }, { t: end, pct: at(end) }];
+  // Where the pace takes the current window from now: to 100 % where it hits, else to the reset, cut at the chart's end.
+  function projection(S, key, now, to) {
+    const p = pace(S, key, now);
+    if (!p) return [];
+    const last = points(S, key).pop();
+    const end = Math.min(p.full || last.resets_at, to);
+    return [{ t: now, pct: last.pct }, { t: end, pct: last.pct + p.rate * (end - now) / 3600 }];
   }
 
   // The part of a stepped line between a and b.
@@ -116,9 +110,9 @@
     return [{ t: start, pct: at(start) }, ...line.filter(p => p.t > start && p.t < end), { t: end, pct: at(end) }];
   }
 
-  // Each window runs from its reset minus its length to its reset, as high as its peak; its fill is the line inside it.
-  function windows(S, key, from, to) {
-    const lines = segments(S, key, from, to);
+  // Each window runs from its reset minus its length to its reset, as high as its peak; its fill is the line inside it, up to now.
+  function windows(S, key, from, to, now = to) {
+    const lines = segments(S, key, from, now);
     return byWindow(points(S, key))
       .map(({ end, own }) => ({ start: end - LENGTH[key], end, peak: Math.max(...own.map(p => p.pct)) }))
       .filter(w => w.end > from && w.start < to)
@@ -231,32 +225,37 @@
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now, split);
     const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
+    // the chart runs on to the framed window's reset, so its projection has room; a line marks now
+    const to = Math.max(now, (c[framed] && c[framed].resets_at) || now);
+    const x = t => Math.round((t - from) / (to - from) * 7000) / 10;
+    const nowLine = doc.getElementById('now');
+    nowLine.setAttribute('x1', x(now));
+    nowLine.setAttribute('x2', x(now));
+    nowLine.setAttribute('visibility', to > now ? 'visible' : 'hidden');
     // a framed line is its fill's top edge, and over weeks the 5 h line is noise under the weekly frames
     for (const key of KEYS.filter(k => k !== 'five_hour')) {
-      const d = key === framed ? '' : segments(S, key, from, now).map(l => path(l, from, now, 700, 160, stepped)).join('');
+      const d = key === framed ? '' : segments(S, key, from, now).map(l => path(l, from, to, 700, 160, stepped)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
     }
-    // only a framed line gets a ramp, it stays inside its window's frame
     for (const key of KEYS)
-      doc.getElementById(`ramp-${key}`).setAttribute('d', key !== framed ? '' : ramps(S, key, from, now).map(line => path(line, from, now, 700, 160, false)).join(''));
+      doc.getElementById(`proj-${key}`).setAttribute('d', key === 'five_hour' && framed !== key ? '' : path(projection(S, key, now, to), from, to, 700, 160, false));
     const frames = doc.getElementById('frames');
-    const x = t => Math.round((t - from) / (now - from) * 7000) / 10;
     const el = (name, attrs) => {
       const e = doc.createElementNS('http://www.w3.org/2000/svg', name);
       for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
       return e;
     };
     frames.setAttribute('class', framed);
-    frames.replaceChildren(...windows(S, framed, from, now).flatMap(w => [
-      ...w.fill.map(l => el('path', { class: 'fill', d: `${path(l, from, now, 700, 160, stepped)}V160H${x(l[0].t)}Z` })),
-      el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 160 - Math.min(w.peak, 100) * 1.6, width: x(Math.min(w.end, now)) - x(Math.max(w.start, from)), height: Math.min(w.peak, 100) * 1.6 }),
+    frames.replaceChildren(...windows(S, framed, from, to, now).flatMap(w => [
+      ...w.fill.map(l => el('path', { class: 'fill', d: `${path(l, from, to, 700, 160, stepped)}V160H${x(l[0].t)}Z` })),
+      el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 160 - Math.min(w.peak, 100) * 1.6, width: x(Math.min(w.end, to)) - x(Math.max(w.start, from)), height: Math.min(w.peak, 100) * 1.6 }),
     ]));
 
     const labels = doc.getElementById('days');
-    const span = (now - from) / DAY;
+    const span = (to - from) / DAY;
     // a day or less gets hour ticks, anything longer day ticks
     const hours = span <= 0.25 ? 1 : span <= 1 ? 3 : 0;
-    const first = new Date(now * 1000);
+    const first = new Date(to * 1000);
     if (hours) first.setHours(first.getHours() - first.getHours() % hours, 0, 0, 0);
     else first.setHours(0, 0, 0, 0);
     const step = hours ? hours * 3600 : DAY;
@@ -266,7 +265,7 @@
       : t => t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     labels.replaceChildren();
     for (let t = first / 1000, i = 0; t > from; t -= step, i++) {
-      const left = (t - from) / (now - from) * 100;
+      const left = (t - from) / (to - from) * 100;
       if (i % every || left > 90) continue;
       const label = doc.createElement('span');
       label.style.left = `${left}%`;
@@ -279,6 +278,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { SPLITS, points, current, pace, paceText, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
+  root.Limits = { SPLITS, points, current, pace, paceText, projection, segments, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);
