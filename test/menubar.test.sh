@@ -68,6 +68,11 @@ printf 'S.push({"ts":%s,"source":"hw"});\n' $((NOW - 60)) > "$TMP/hw-checked.js"
 check "a recent check hides the age, keeps the values" "5 h 40 %|7 d 69 %" "$(menu)"
 rm "$TMP/hw-checked.js"
 
+# a busy window: the pace of the last hour fills it before the reset
+{ line $((NOW - 7000)) 12 $((NOW + 3 * 3600)); line $((NOW - 3500)) 30 $((NOW + 3 * 3600)); line $((NOW - 60)) 58 $((NOW + 3 * 3600)); } > "$TMP/hw.js"
+check "a pace that fills the window before its reset" "at this pace full" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f4 | cut -c1-17)"
+check "a pace that does not stays quiet" "" "$(./menubar/claude-limits-bar --menu | sed -n 2p | cut -f4)"
+
 settings() { printf '%s' "$1" > "$CLAUDE_LIMITS_SETTINGS"; }
 title() { ./menubar/claude-limits-bar --title; }
 reset_text() { ./menubar/claude-limits-bar --menu | head -1 | cut -f3; }

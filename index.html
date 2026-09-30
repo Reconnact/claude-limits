@@ -29,8 +29,12 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   h2::before { content: ""; flex: none; width: 1.4em; height: 3px; border-radius: 2px; background: var(--line); }
   .pct { margin: .05em 0 0; font: 200 clamp(2.4rem, 8vw, 6rem)/1.1 -apple-system, "SF Pro Display", system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .reset { margin: .2em 0 1em; min-height: 1.5em; font-size: clamp(.8rem, 1.6vw, .95rem); color: var(--text-2); }
-  .bar { height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--line); }
+  .bar { position: relative; height: 3px; border-radius: 2px; background: var(--rule); }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--line); }
+  /* the share of the window that has passed: a fill past it is faster than the window allows */
+  .bar b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text-2); }
+  .bar b[hidden] { display: none; }
+  .pace { margin: .6em 0 0; min-height: 1.5em; font-size: .85rem; color: var(--text-3); }
 
   .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: clamp(40px, 7vw, 80px); }
   #asof { font-size: .85rem; color: var(--text-3); }
@@ -88,9 +92,9 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
 </style>
 <main>
   <div class="tiles">
-    <section id="five_hour"><h2>5 hours</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
-    <section id="seven_day"><h2>7 days</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
-    <section id="fable"><h2>Fable</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i></div></section>
+    <section id="five_hour"><h2>5 hours</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
+    <section id="seven_day"><h2>7 days</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
+    <section id="fable"><h2>Fable</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
   </div>
   <div class="controls">
     <span id="asof"></span>

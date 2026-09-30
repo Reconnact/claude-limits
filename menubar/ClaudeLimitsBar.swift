@@ -15,10 +15,10 @@ func rgb(_ hex: Int) -> NSColor {
 func themed(_ light: Int, _ dark: Int) -> NSColor {
     NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? rgb(dark) : rgb(light) }
 }
-let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, color: NSColor)] = [
-    ("five_hour", "5 h", \.five_hour, themed(0x1f6fe0, 0x3b8eff)),
-    ("seven_day", "7 d", \.seven_day, themed(0x8b3fd9, 0xba66ff)),
-    ("fable", "Fable", \.fable, themed(0xb35f0a, 0xe9973f)),
+let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, length: Double, color: NSColor)] = [
+    ("five_hour", "5 h", \.five_hour, 5 * 3600, themed(0x1f6fe0, 0x3b8eff)),
+    ("seven_day", "7 d", \.seven_day, 7 * 86400, themed(0x8b3fd9, 0xba66ff)),
+    ("fable", "Fable", \.fable, 7 * 86400, themed(0xb35f0a, 0xe9973f)),
 ]
 let warnColor = themed(0x8f8a14, 0xe0de71)
 
@@ -95,6 +95,20 @@ func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_a
     return ws.max { $0.pct < $1.pct }
 }
 
+// as pace() on the page: the rise over the last hour of the current window, from the value held then or from 0 % at its start,
+// and when it fills the window if that comes before the reset; none before the window is an hour old
+func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, length: Double, now: Double) -> String? {
+    let ws = all.compactMap { s in s[keyPath: key].map { (t: s.ts, w: $0) } }
+    guard let newest = ws.map(\.w.resets_at).max(), newest > now, now - (newest - length) >= 3600 else { return nil }
+    let own = ws.filter { newest - $0.w.resets_at <= 60 }
+    let pct = own.map(\.w.used_percentage).max() ?? 0
+    let before = own.filter { $0.t <= now - 3600 }
+    let base = before.isEmpty ? (t: newest - length, pct: 0.0) : (t: before.map(\.t).max()!, pct: before.map(\.w.used_percentage).max()!)
+    let rate = (pct - base.pct) / (now - base.t) * 3600
+    guard rate > 0, case let full = now + (100 - pct) / rate * 3600, full < newest else { return nil }
+    return "at this pace full \(when(full, "time", now: now)) · \(String(format: "%.1f", rate)) %/h"
+}
+
 func title(_ pct: Int?) -> String { pct.map { "\($0)%" } ?? "–" }
 
 // as until() on the page
@@ -132,10 +146,11 @@ func menuBarTitle(_ all: [Snapshot], _ s: Settings, now: Double) -> String {
     }
 }
 
-func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, text: String, color: NSColor)] {
+func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, elapsed: Double?, text: String, pace: String?, color: NSColor)] {
     s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
-        return (w.pct, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", l.color)
+        let elapsed = w.resets_at.map { min(1, max(0, (now - ($0 - l.length)) / l.length)) }
+        return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", pace(all, l.key, length: l.length, now: now), l.color)
     }
 }
 
@@ -180,13 +195,18 @@ func bar(_ pct: Int?, _ color: NSColor?) -> NSImage {
     return image
 }
 
-func meter(_ pct: Int, _ color: NSColor) -> NSImage {
+// the tick is the share of the window that has passed: a fill past it is faster than the window allows
+func meter(_ pct: Int, _ elapsed: Double?, _ color: NSColor) -> NSImage {
     NSImage(size: NSSize(width: 40, height: 6), flipped: false) { rect in
         NSColor.tertiaryLabelColor.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
         color.setFill()
         let filled = NSRect(x: 0, y: 0, width: rect.width * CGFloat(min(pct, 100)) / 100, height: rect.height)
         NSBezierPath(roundedRect: filled, xRadius: 3, yRadius: 3).fill()
+        if let elapsed {
+            NSColor.labelColor.setFill()
+            NSRect(x: min(rect.width - 1.5, rect.width * CGFloat(elapsed)), y: 0, width: 1.5, height: rect.height).fill()
+        }
         return true
     }
 }
@@ -202,7 +222,7 @@ if CommandLine.arguments.contains("--title") {
 }
 if CommandLine.arguments.contains("--menu") {
     let all = snapshots()
-    rows(all, Settings.load(), now: now).forEach { print($0.text) }
+    rows(all, Settings.load(), now: now).forEach { print($0.text + ($0.pace.map { "\t" + $0 } ?? "")) }
     age(all, now: now).map { print($0) }
     exit(0)
 }
@@ -410,7 +430,13 @@ final class Bar: NSObject {
         let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         for row in rows(all, store.settings, now: now) {
             let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.text, attributes: [.font: font, .paragraphStyle: style]))
-            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.color)), text]))
+            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.elapsed, row.color)), text]))
+            if let pace = row.pace {
+                let label = NSTextField(labelWithString: pace)
+                label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                label.textColor = .secondaryLabelColor
+                views.append(label)
+            }
         }
         if let age = age(all, now: now) {
             let label = NSTextField(labelWithString: age)

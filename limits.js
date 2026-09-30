@@ -1,6 +1,7 @@
 (function (root) {
   const SAME_WINDOW = 60;   // resets_at moves by a few seconds between responses, a new window by hours
   const STALE = 30 * 60;
+  const RATE_SPAN = 3600;   // the pace is the rise over the last hour
   const DAY = 24 * 3600;
   const KEYS = ['five_hour', 'seven_day', 'fable'];
   const LENGTH = { five_hour: 5 * 3600, seven_day: 7 * DAY, fable: 7 * DAY };
@@ -38,7 +39,7 @@
       const p = points(S, key).pop();
       if (!p) return null;
       if (p.resets_at <= now) return { pct: 0, resets_at: null, reset: true };
-      return { pct: p.pct, resets_at: p.resets_at, reset: false };
+      return { pct: p.pct, resets_at: p.resets_at, reset: false, elapsed: Math.min(1, Math.max(0, (now - (p.resets_at - LENGTH[key])) / LENGTH[key])) };
     };
     return {
       five_hour: win('five_hour'),
@@ -48,6 +49,26 @@
       source: newest.source,
       stale: now - newest.ts > STALE,
     };
+  }
+
+  // The rise over the last hour of the current window in % per hour, from the value held an hour ago, or from 0 % at the window's start;
+  // and when it reaches 100 % if that comes before the reset. None before the window is an hour old, the estimate jumps until then.
+  function pace(S, key, now) {
+    const own = points(S, key);
+    const last = own[own.length - 1];
+    if (!last || last.resets_at <= now) return null;
+    const start = last.resets_at - LENGTH[key];
+    if (now - start < RATE_SPAN) return null;
+    const base = own.filter(p => p.resets_at === last.resets_at && p.t <= now - RATE_SPAN).pop() || { t: start, pct: 0 };
+    const rate = (last.pct - base.pct) / (now - base.t) * 3600;
+    const full = rate > 0 ? now + (100 - last.pct) / rate * 3600 : null;
+    return { rate, full: full !== null && full < last.resets_at ? full : null };
+  }
+
+  function paceText(p, now) {
+    if (!p) return '';
+    const rate = `${p.rate.toFixed(1)} %/h`;
+    return p.full ? `at this pace full ${clock(p.full, now)} · ${rate}` : `on track · ${rate}`;
   }
 
   // points() keeps a window's points together, so one pass splits them.
@@ -201,6 +222,10 @@
       el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset'
         : resets(w.resets_at, now, resetFormat).replace(/(\d) /g, '$1\u00a0');
       el.querySelector('.bar i').style.width = `${w ? Math.min(w.pct, 100) : 0}%`;
+      const tick = el.querySelector('.bar b');
+      tick.hidden = !w || w.reset;
+      tick.style.left = w && !w.reset ? `${w.elapsed * 100}%` : '';
+      el.querySelector('.pace').textContent = paceText(pace(S, key, now), now).replace(/(\d) /g, '$1\u00a0');
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
@@ -254,6 +279,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { SPLITS, points, current, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
+  root.Limits = { SPLITS, points, current, pace, paceText, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -101,6 +101,58 @@ test('current: a window that never came is null', () => {
   assert.equal(Limits.current(S, T0 + 10).seven_day, null);
 });
 
+test('current: the share of the window that has passed', () => {
+  const S = [snap(T0 + H, 'hw', [20, T0 + 5 * H], [40, T0 + 7 * DAY])];
+  const c = Limits.current(S, T0 + 2 * H);
+  assert.equal(c.five_hour.elapsed, 0.4);
+  assert.equal(c.seven_day.elapsed, 2 * H / (7 * DAY));
+});
+
+test('current: a reset window has no share', () => {
+  const S = [snap(T0, 'reconnact', [80, T0 + 5 * H], null)];
+  assert.equal(Limits.current(S, T0 + 6 * H).five_hour.elapsed, undefined);
+});
+
+test('pace: none before the window is an hour old', () => {
+  const S = [snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null)];
+  assert.equal(Limits.pace(S, 'five_hour', T0 + 50 * 60), null);
+});
+
+test('pace: the rise over the last hour, full before the reset', () => {
+  const S = [
+    snap(T0 + 30 * 60, 'hw', [10, T0 + 5 * H], null),
+    snap(T0 + H, 'hw', [20, T0 + 5 * H], null),
+    snap(T0 + 2 * H, 'hw', [60, T0 + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 40, full: T0 + 3 * H });
+});
+
+test('pace: a slower rise reaches the reset first', () => {
+  const S = [snap(T0 + H, 'hw', [5, T0 + 5 * H], null), snap(T0 + 2 * H, 'hw', [10, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 5, full: null });
+});
+
+test('pace: before the first point the window starts at 0 %', () => {
+  const S = [snap(T0 + 90 * 60, 'hw', [30, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 2 * H), { rate: 15, full: null });
+});
+
+test('pace: an idle stretch brings the rate down to 0', () => {
+  const S = [snap(T0 + H, 'hw', [20, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.pace(S, 'five_hour', T0 + 3 * H), { rate: 0, full: null });
+});
+
+test('pace: an expired window has none', () => {
+  const S = [snap(T0 + H, 'hw', [80, T0 + 5 * H], null)];
+  assert.equal(Limits.pace(S, 'five_hour', T0 + 6 * H), null);
+});
+
+test('pace: the text under a limit', () => {
+  assert.equal(Limits.paceText(null, T0), '');
+  assert.equal(Limits.paceText({ rate: 5, full: null }, T0), 'on track · 5.0 %/h');
+  assert.match(Limits.paceText({ rate: 40, full: T0 + 3 * H }, T0), /^at this pace full (\w{3} )?\d\d:\d\d · 40\.0 %\/h$/);
+});
+
 test('segments: the line ends where its window resets, the next window starts a new one', () => {
   const S = [
     snap(T0 + 100, 'reconnact', [80, T0 + 5 * H], null),
