@@ -79,6 +79,25 @@ rm "$TMP/out/.$(id -un)-tally.jsonl"
 ./tally
 check "incremental equals a full run" "same" "$(cmp -s "$TMP/incremental" "$OUT" && echo same || echo differs)"
 
+# Claude Code writes a reply with the folder its own cd moved to, so the first reply of a session can already be elsewhere
+mkdir -p "$TMP/claude/projects/q"
+{
+  printf '{"type":"user","cwd":"%s/Workspace/b","timestamp":"2026-09-30T13:00:00.000Z"}\n' "$HOME"
+  msg n1 "$HOME/Workspace/b/sub" 2026-09-30T13:00:05.000Z claude-sonnet-5-5 4
+} > "$TMP/claude/projects/q/s5.jsonl"
+./tally
+check "a cd in the first reply, the project stays where the session started" '"~/Workspace/b"' "$(rows 'select(.model == "claude-sonnet-5-5") | .project')"
+
+# a cache from before stays unread, so its rows under the folder of the first reply stay too: rebuild once
+CACHE="$TMP/out/.$(id -un)-tally.jsonl"
+jq -c 'del(.start)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE"
+sed 's|"project":"~/Workspace/b"|"project":"~/Workspace/b/sub"|' "$OUT" > "$TMP/oldout"
+printf 'T.push({"hour":1788000000,"project":"~/Workspace/gone","model":"claude-opus-5-5","input":1,"cache_write_5m":0,"cache_write_1h":0,"cache_read":0,"output":8});\n' >> "$TMP/oldout"
+mv "$TMP/oldout" "$OUT"
+./tally
+check "an old cache, the row under the first reply's folder goes" '"~/Workspace/b"' "$(rows 'select(.model == "claude-sonnet-5-5") | .project')"
+check "an old cache, an hour without transcripts stays" "8" "$(rows 'select(.hour == 1788000000) | .output')"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally
