@@ -1,0 +1,20 @@
+#!/bin/bash
+# Reads all three limits, the Fable one included, from the usage endpoint Claude Code calls for /usage
+# and hands them to collect. Undocumented: an empty or changed answer writes nothing.
+TOKEN="$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)"
+[ -n "$TOKEN" ] || exit 0
+
+# the header goes in on stdin, so the token never shows in ps
+printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" \
+  | curl -s -f -m 10 -K - -H "anthropic-beta: oauth-2025-04-20" https://api.anthropic.com/api/oauth/usage \
+  | jq -c '
+      def epoch: sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601;
+      def window($pct; $reset): if $pct == null or $reset == null then null else {used_percentage: $pct, resets_at: ($reset | epoch)} end;
+      (first(.limits[]? | select(.kind == "weekly_scoped" and .scope.model.display_name == "Fable")) // null) as $f
+      | {rate_limits: {
+          five_hour: window(.five_hour.utilization; .five_hour.resets_at),
+          seven_day: window(.seven_day.utilization; .seven_day.resets_at),
+          fable: window($f.percent; $f.resets_at)
+        }}
+    ' 2>/dev/null \
+  | "$(dirname "$0")/collect" >/dev/null

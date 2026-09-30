@@ -1,12 +1,13 @@
 # claude-limits
 
-The 5 h and 7 d Claude limits, recorded by the Claude Code status line and shown on a page that is opened from disk. Nothing runs in the background.
+The 5 h, 7 d and Fable Claude limits, recorded by the Claude Code status line and shown on a page that is opened from disk. Nothing runs between turns.
 
 ## How it works
 
 - Claude Code passes `rate_limits` to the status line script on stdin
 - `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
-- `index.html` loads every account's file as a script and draws the two numbers and their history
+- the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 min: it reads the Claude Code token from the Keychain, calls `api.anthropic.com/api/oauth/usage` (undocumented, the call behind `/usage`) and pipes all three limits back into `collect`
+- `index.html` loads every account's file as a script and draws the three numbers and their history
 
 Each macOS account writes its own file. The limits belong to the Claude account, so two macOS accounts on one Claude login report the same number.
 

@@ -3,6 +3,7 @@
   const STALE = 30 * 60;
   const DAY = 24 * 3600;
   const GAP = DAY;
+  const KEYS = ['five_hour', 'seven_day', 'fable'];
 
   // One point per rise: both accounts report the same number, and an idle session repeats an old one.
   function points(S, key) {
@@ -30,13 +31,14 @@
     return {
       five_hour: win('five_hour'),
       seven_day: win('seven_day'),
+      fable: win('fable'),
       ts: newest.ts,
       source: newest.source,
       stale: now - newest.ts > STALE,
     };
   }
 
-  // One line per stretch of snapshots: more than a day without one is no data, not 0 %.
+  // One line per stretch of snapshots: more than a day without one is no data, not 0 %, and so is the time before the window's first point.
   function segments(S, key, from, to) {
     const steps = [];
     const pts = points(S, key);
@@ -49,7 +51,8 @@
     const at = t => (steps.filter(p => p.t <= t).pop() || { pct: 0 }).pct;
 
     const spans = [];
-    for (const t of S.map(s => s.ts).filter(t => t <= to).sort((a, b) => a - b)) {
+    const first = pts.length ? pts[0].t : Infinity;
+    for (const t of S.map(s => s.ts).filter(t => t >= first && t <= to).sort((a, b) => a - b)) {
       const last = spans[spans.length - 1];
       if (last && t - last[1] <= GAP) last[1] = t;
       else spans.push([t, t]);
@@ -87,7 +90,7 @@
     }
     main.classList.toggle('stale', c.stale);
 
-    for (const key of ['five_hour', 'seven_day']) {
+    for (const key of KEYS) {
       const el = doc.getElementById(key), w = c[key];
       el.querySelector('.pct').textContent = w ? `${Math.round(w.pct)} %` : '–';
       el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset' : `resets in ${until(w.resets_at, now)}`;
@@ -96,7 +99,7 @@
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
-    for (const key of ['five_hour', 'seven_day']) {
+    for (const key of KEYS) {
       const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
     }

@@ -15,6 +15,10 @@ check() {   # check <name> <expected> <actual>
   fi
 }
 
+# no Keychain in the tests, so the background fetch-usage stops before the network
+mkdir -p "$TMP/bin"; printf '#!/bin/sh\nexit 44\n' > "$TMP/bin/security"; chmod +x "$TMP/bin/security"
+export PATH="$TMP/bin:$PATH"
+
 input() {   # input <5h pct> <5h reset> <7d pct> <7d reset>
   printf '{"model":{"display_name":"x"},"rate_limits":{"five_hour":{"used_percentage":%s,"resets_at":%s},"seven_day":{"used_percentage":%s,"resets_at":%s}}}' "$1" "$2" "$3" "$4"
 }
@@ -93,5 +97,28 @@ D="$TMP/garbage"
 OUT="$(printf 'not json' | run "$D")"; CODE=$?
 check "garbage prints nothing" "" "$OUT"
 check "garbage exits 0" "0" "$CODE"
+
+# the Fable window only comes from fetch-usage
+fable() {   # fable <pct> <reset>
+  printf '{"rate_limits":{"five_hour":{"used_percentage":4,"resets_at":1790000000},"seven_day":{"used_percentage":69,"resets_at":1790400000},"fable":{"used_percentage":%s,"resets_at":%s}}}' "$1" "$2"
+}
+D="$TMP/fable"
+fable 76 1790400000 | run "$D" >/dev/null
+check "fable window appends" "1" "$(lines "$D")"
+check "line carries the fable window" "76 1790400000" "$(tail -1 "$D/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq -r '.fable | "\(.used_percentage) \(.resets_at)"')"
+input 5 1790000000 69 1790400000 | run "$D" >/dev/null
+check "status line snapshot has no fable key" "false" "$(tail -1 "$D/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq 'has("fable")')"
+fable 76 1790400000 | run "$D" >/dev/null
+check "same fable after a status line snapshot writes nothing" "2" "$(lines "$D")"
+fable 77 1790400000 | run "$D" >/dev/null
+check "higher fable appends" "3" "$(lines "$D")"
+
+# the fetch starts at most every 5 min
+D="$TMP/stamp"
+input 1 1790000000 2 1790400000 | run "$D" >/dev/null
+check "first snapshot stamps the fetch" "yes" "$([ -f "$D/.$(id -un)-fetched" ] && echo yes)"
+touch -t 202001010000 "$D/.$(id -un)-fetched"
+input 1 1790000000 2 1790400000 | run "$D" >/dev/null
+check "a stamp older than 5 min is renewed" "yes" "$([ -n "$(find "$D/.$(id -un)-fetched" -mmin -5)" ] && echo yes)"
 
 exit $FAILED

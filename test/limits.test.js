@@ -6,11 +6,12 @@ const H = 3600;
 const DAY = 24 * H;
 const T0 = 1790000000;
 
-function snap(ts, source, h5, d7) {
+function snap(ts, source, h5, d7, fb) {
   return {
     ts, source,
     five_hour: h5 && { used_percentage: h5[0], resets_at: h5[1] },
     seven_day: d7 && { used_percentage: d7[0], resets_at: d7[1] },
+    fable: fb && { used_percentage: fb[0], resets_at: fb[1] },
   };
 }
 
@@ -175,6 +176,25 @@ test('segments: a last snapshot older than a day ends the line there', () => {
 test('segments: a line that ended before the range is left out', () => {
   const S = [snap(T0, 'hw', [50, T0 + 5 * H], null)];
   assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), []);
+});
+
+test('current: the fable window', () => {
+  const S = [snap(T0, 'hw', [4, T0 + H], [69, T0 + 100 * H], [76, T0 + 100 * H])];
+  const c = Limits.current(S, T0 + 10);
+  assert.equal(c.fable.pct, 76);
+  assert.equal(c.fable.resets_at, T0 + 100 * H);
+});
+
+test('segments: no line before the window\'s first point', () => {
+  const S = [
+    snap(T0, 'hw', [4, T0 + 5 * H], [60, T0 + 100 * H]),
+    snap(T0 + H, 'hw', [5, T0 + 5 * H], [61, T0 + 100 * H], [76, T0 + 100 * H]),
+    snap(T0 + 2 * H, 'hw', [6, T0 + 5 * H], [62, T0 + 100 * H]),
+  ];
+  assert.deepEqual(Limits.segments(S, 'fable', T0, T0 + 2 * H), [[
+    { t: T0 + H, pct: 76 },
+    { t: T0 + 2 * H, pct: 76 },
+  ]]);
 });
 
 test('path: a step line scaled to the box', () => {

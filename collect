@@ -7,8 +7,12 @@ FILE="$DIR/$ME.js"
 LAST="$(tail -1 "$FILE" 2>/dev/null)"
 LAST="${LAST#S.push(}"
 LAST="${LAST%);}"
+# only fetch-usage brings the Fable window, so it is compared with the last line that has one
+LASTF="$(grep '"fable"' "$FILE" 2>/dev/null | tail -1)"
+LASTF="${LASTF#S.push(}"
+LASTF="${LASTF%);}"
 
-{ IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg source "$ME" '
+{ IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg lastf "$LASTF" --arg source "$ME" '
   # resets_at moves by a few seconds between responses, a new window by hours
   def newer($cur; $last):
     $cur != null and (
@@ -18,11 +22,13 @@ LAST="${LAST%);}"
     );
   def shown: if . == null then "-" else (.used_percentage | round | tostring) end;
 
-  (try ($last | fromjson) catch null | if type == "object" then . else null end) as $l
+  def parse: try fromjson catch null | if type == "object" then . else null end;
+  ($last | parse) as $l
+  | ($lastf | parse) as $lf
   | .rate_limits
-  | select(.five_hour != null or .seven_day != null)
-  | (if newer(.five_hour; $l.five_hour) or newer(.seven_day; $l.seven_day)
-     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} | tojson));"
+  | select(.five_hour != null or .seven_day != null or .fable != null)
+  | (if newer(.five_hour; $l.five_hour) or newer(.seven_day; $l.seven_day) or newer(.fable; $lf.fable)
+     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) | tojson));"
      else "" end),
     "\(.five_hour | shown)\t\(.seven_day | shown)"
 ' 2>/dev/null)
@@ -32,3 +38,10 @@ if [ -n "$LINE" ]; then
   printf '%s\n' "$LINE" >> "$FILE"
 fi
 printf '%s' "$SHOWN"
+
+# the status line input has no Fable limit -> fetch-usage reads it, at most every 5 min
+STAMP="$DIR/.$ME-fetched"
+if [ -d "$DIR" ] && [ -z "$(find "$STAMP" -mmin -5 2>/dev/null)" ]; then
+  touch "$STAMP"
+  "$(dirname "$0")/fetch-usage" </dev/null >/dev/null 2>&1 &
+fi
