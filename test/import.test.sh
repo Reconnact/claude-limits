@@ -41,5 +41,6 @@ check "folder is 1777" "drwxrwxrwt" "$(stat -f '%Sp' "$TMP/out")"
 # a second run replaces the file
 CLAUDE_LIMITS_DIR="$TMP/out" ./import-usage-for-claude "$TMP/a.jsonl"
 check "second run replaces the file" "2" "$(wc -l < "$OUT" | tr -d ' ')"
+check "old app is listed once" 'SOURCES.push("usage-for-claude");' "$(cat "$TMP/out/sources.js")"
 
 exit $FAILED

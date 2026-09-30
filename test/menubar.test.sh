@@ -40,4 +40,9 @@ line $((NOW - 60)) 12 $((NOW + 3600)) > "$TMP/reconnact.js"
 line $((NOW - 30)) 3 $((NOW + 3600)) > "$TMP/usage-for-claude.js"
 check "old app data is ignored" "12%" "$(bar)"
 
+rm "$TMP"/*.js
+line $((NOW - 60)) 33 $((NOW + 3600)) > "$TMP/someone.js"
+printf 'SOURCES.push("someone");\n' > "$TMP/sources.js"
+check "any account name, index ignored" "33%" "$(bar)"
+
 exit $FAILED

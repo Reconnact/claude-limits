@@ -1,54 +1,70 @@
 # claude-limits
 
-The 5 h, 7 d and Fable Claude limits, recorded by the Claude Code status line and shown on a page that is opened from disk. Nothing runs between turns.
+Your Claude plan limits on a page and in the menu bar: the 5-hour window, the weekly limit and the weekly Fable limit, with their history. Claude Code's status line records them, so nothing polls between turns. macOS only.
 
-## How it works
+## Setup
 
-- Claude Code passes `rate_limits` to the status line script on stdin
-- `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
-- the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 min: it reads the Claude Code token from the Keychain, calls `api.anthropic.com/api/oauth/usage` (undocumented, the call behind `/usage`) and pipes all three limits back into `collect`
-- `index.html` loads every account's file as a script and draws the three numbers and their history
+Needs macOS, Claude Code signed in with a Claude subscription, and `jq` (`brew install jq`). The menu bar item also needs `swiftc` (`xcode-select --install`).
 
-Each macOS account writes its own file. The limits belong to the Claude account, so two macOS accounts on one Claude login report the same number.
+```sh
+git clone https://github.com/Reconnact/claude-limits.git ~/claude-limits
+~/claude-limits/install
+```
 
-## Setup, per macOS account
+`install` makes the shared data folder, sets Claude Code's status line and starts the menu bar item at login. Run it again at any time; `./install --no-menubar` leaves out the menu bar.
 
-Clone to `~/Workspace/claude-limits`, then call `collect` from `~/.claude/statusline.sh`:
+The next Claude Code turn records the limits. Then:
+
+```sh
+open ~/claude-limits/index.html
+```
+
+### You already have a status line
+
+`install` leaves your status line alone and prints two lines to add to it. They pass the status line's input to `collect`:
 
 ```bash
 INPUT="$(cat)"
-IFS=$'\t' read -r H5 D7 < <("$HOME/Workspace/claude-limits/collect" <<<"$INPUT" 2>/dev/null)
+IFS=$'\t' read -r H5 D7 < <("$HOME/claude-limits/collect" <<<"$INPUT" 2>/dev/null)
 ```
 
-`H5` and `D7` hold the rounded percentages, `-` for a window that is not in the input.
+`H5` and `D7` then hold the rounded percentages, `-` when a window is missing, for your own status line text.
 
-Account names other than `hw` and `reconnact` go into `SOURCES` in `index.html`.
+### Several macOS accounts
 
-## Open
+Run `install` once in each account. Every account writes its own file into `/Users/Shared/claude-limits`, and the page and menu bar read all of them. Accounts on the same Claude login report the same limits, so the page shows one line per limit.
 
-```sh
-open ~/Workspace/claude-limits/index.html
-```
+## The page
 
-The buttons above the chart switch between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`). More than a day without a snapshot shows as a break in the line.
+- a tile per limit with the time to its reset; from 80 % the number turns yellow
+- the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
+- more than a day without a snapshot is a break in the line, not 0 %
+- a page older than 30 minutes greys out and shows its age
+- `?dir=<url>` reads the data from another folder
 
-`?dir=<url>` reads the data from another folder.
+Reload for fresh numbers.
 
-## Menu bar
+## The menu bar
 
-```sh
-make install-menubar
-```
+Shows the 5-hour percentage from the newest snapshot of any account; a click opens the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
 
-Shows the 5 h percentage in the menu bar, from the newest `hw` or `reconnact` snapshot; a click opens `index.html`. A LaunchAgent starts it at login and it re-reads the files every minute. Per macOS account. `make uninstall-menubar` removes it.
+## How it works
 
-## Old data
+- Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
+- a data file is a list of `S.push({...});` lines, and `sources.js` lists the files -> a page opened from disk may load a script, but not fetch or list files
+- the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
+
+**That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
+
+A headless run (`claude -p`) does not call the status line and records nothing.
+
+## Old data from Usage for Claude
 
 ```sh
 ./import-usage-for-claude <history.jsonl>...
 ```
 
-Turns the history of the Usage for Claude app into `usage-for-claude.js` next to the other data files. Every run writes the file anew, so pass all history files at once.
+Turns the Usage for Claude app's history (in `~/Library/Group Containers/group.com.amirhayek.ClaudeUsage/`) into a data file for the page. Every run writes the file anew, so pass all history files at once.
 
 ## Test
 
@@ -56,4 +72,8 @@ Turns the history of the Usage for Claude app into `usage-for-claude.js` next to
 make test
 ```
 
-Needs `jq` and `node`.
+Needs `jq`, `node` and `swiftc`.
+
+## License
+
+MIT

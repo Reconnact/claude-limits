@@ -39,6 +39,12 @@ if [ -n "$LINE" ]; then
 fi
 printf '%s' "$SHOWN"
 
+# the page cannot list a folder, so every account adds its file here once; 666 so the next account can append
+if [ -f "$FILE" ] && ! grep -qx "SOURCES.push(\"$ME\");" "$DIR/sources.js" 2>/dev/null; then
+  printf 'SOURCES.push("%s");\n' "$ME" >> "$DIR/sources.js"
+  chmod 666 "$DIR/sources.js" 2>/dev/null
+fi
+
 # the status line input has no Fable limit -> fetch-usage reads it, at most every 5 min
 STAMP="$DIR/.$ME-fetched"
 if [ -d "$DIR" ] && [ -z "$(find "$STAMP" -mmin -5 2>/dev/null)" ]; then

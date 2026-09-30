@@ -4,6 +4,7 @@ test: menubar
 	bash test/import.test.sh
 	bash test/fetch.test.sh
 	bash test/menubar.test.sh
+	bash test/install.test.sh
 	node --test test/limits.test.js
 
 LABEL := net.alpha-lab.claude-limits-bar

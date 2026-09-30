@@ -15,3 +15,7 @@ jq -r -s '
     }
   | "S.push(\(tojson));"
 ' "$@" > "$DIR/usage-for-claude.js"
+grep -qx 'SOURCES.push("usage-for-claude");' "$DIR/sources.js" 2>/dev/null || {
+  printf 'SOURCES.push("usage-for-claude");\n' >> "$DIR/sources.js"
+  chmod 666 "$DIR/sources.js" 2>/dev/null
+}

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Sets up claude-limits for the current macOS account. Safe to run again.
+cd "$(dirname "$0")" || exit 1
+REPO="$PWD"
+DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
+SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+
+[ "$(uname)" = Darwin ] || { echo "claude-limits needs macOS."; exit 1; }
+command -v jq >/dev/null || { echo "Needs jq: brew install jq"; exit 1; }
+
+# the data folder, shared by every account on this Mac
+[ -d "$DIR" ] || { mkdir -p "$DIR" && chmod 1777 "$DIR"; } || exit 1
+echo "ok   data folder $DIR"
+
+# the status line feeds the data
+CURRENT="$(jq -r '.statusLine.command // empty' "$SETTINGS" 2>/dev/null)"
+SCRIPT="${CURRENT/#\$HOME/$HOME}"
+SCRIPT="${SCRIPT/#\~/$HOME}"
+if [ -z "$CURRENT" ]; then
+  mkdir -p "$(dirname "$SETTINGS")"
+  [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+  cp "$SETTINGS" "$SETTINGS.bak"
+  jq --arg cmd "$REPO/statusline" '.statusLine = {type: "command", command: $cmd}' "$SETTINGS.bak" > "$SETTINGS" \
+    || { cp "$SETTINGS.bak" "$SETTINGS"; echo "FAIL could not write $SETTINGS"; exit 1; }
+  echo "ok   status line set to $REPO/statusline (old settings in $SETTINGS.bak)"
+elif [ "$SCRIPT" = "$REPO/statusline" ] || grep -q "claude-limits/collect\|$REPO/collect" "$SCRIPT" 2>/dev/null; then
+  echo "ok   status line already records the limits"
+else
+  echo "todo you have your own status line ($CURRENT). Pass its input to collect, for example:"
+  echo "       INPUT=\"\$(cat)\""
+  echo "       IFS=\$'\\t' read -r H5 D7 < <(\"$REPO/collect\" <<<\"\$INPUT\" 2>/dev/null)"
+fi
+
+# the menu bar item
+if [ "${1:-}" = --no-menubar ]; then
+  echo "skip menu bar item"
+elif ! command -v swiftc >/dev/null; then
+  echo "todo menu bar item needs swiftc: xcode-select --install, then run ./install again"
+else
+  make -s install-menubar >/dev/null && echo "ok   menu bar item, starts at login" || echo "FAIL menu bar item: make install-menubar"
+fi
+
+echo
+echo "Next Claude Code turn records the limits. The page: open \"$REPO/index.html\""

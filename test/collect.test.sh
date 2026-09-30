@@ -121,4 +121,14 @@ touch -t 202001010000 "$D/.$(id -un)-fetched"
 input 1 1790000000 2 1790400000 | run "$D" >/dev/null
 check "a stamp older than 5 min is renewed" "yes" "$([ -n "$(find "$D/.$(id -un)-fetched" -mmin -5)" ] && echo yes)"
 
+# every account adds itself to the index once
+D="$TMP/sources"
+input 1 1790000000 2 1790400000 | run "$D" >/dev/null
+input 3 1790000000 2 1790400000 | run "$D" >/dev/null
+check "account is listed once" "SOURCES.push(\"$(id -un)\");" "$(cat "$D/sources.js")"
+check "index is writable for the next account" "-rw-rw-rw-" "$(stat -f '%Sp' "$D/sources.js")"
+D="$TMP/nolimits"
+printf '{"model":{"display_name":"x"}}' | run "$D" >/dev/null
+check "no data file, no index" "no" "$([ -f "$D/sources.js" ] && echo yes || echo no)"
+
 exit $FAILED

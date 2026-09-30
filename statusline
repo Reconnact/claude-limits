@@ -1,0 +1,9 @@
+#!/bin/bash
+# A minimal Claude Code status line: records the limits and shows them, e.g. "Fable 5.1 · 5h 23% · 7d 41%"
+INPUT="$(cat)"
+MODEL="$(jq -r '.model.display_name // empty' <<<"$INPUT" 2>/dev/null)"
+IFS=$'\t' read -r H5 D7 < <("$(dirname "$0")/collect" <<<"$INPUT" 2>/dev/null)
+OUT="$MODEL"
+[ -n "$H5" ] && [ "$H5" != - ] && OUT="$OUT · 5h $H5%"
+[ -n "$D7" ] && [ "$D7" != - ] && OUT="$OUT · 7d $D7%"
+printf '%s' "${OUT# · }"

@@ -87,19 +87,24 @@ const PARAMS = new URLSearchParams(location.search);
 const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
 const RANGES = { '5h': 5 / 24, 1: 1, 7: 7, 30: 30, all: 'all' };
 const DAYS = PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
-const SOURCES = ['hw', 'reconnact', 'usage-for-claude'];
 for (const a of document.querySelectorAll('nav a')) {
   const params = new URLSearchParams(PARAMS);
   params.set('days', a.dataset.days);
   a.href = `?${params}`;
   if (a.dataset.days === DAYS) a.setAttribute('aria-current', 'page');
 }
-var S = [];
-let left = SOURCES.length;
-for (const name of SOURCES) {
+var S = [], SOURCES = [];
+const load = (src, done) => {
   const el = document.createElement('script');
-  el.src = `${DIR}/${name}.js`;
-  el.onload = el.onerror = () => { if (!--left) Limits.render(document, S, Date.now() / 1000, RANGES[DAYS]); };
+  el.src = src;
+  el.onload = el.onerror = done;
   document.head.append(el);
-}
+};
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS]);
+load(`${DIR}/sources.js`, () => {
+  const names = [...new Set(SOURCES)];
+  let left = names.length;
+  if (!left) draw();
+  for (const name of names) load(`${DIR}/${name}.js`, () => { if (!--left) draw(); });
+});
 </script>
