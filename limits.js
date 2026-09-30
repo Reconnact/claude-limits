@@ -136,11 +136,18 @@
     return (r.speed === 'fast' ? 2 : 1) * (r.input * input + r.cache_write_5m * input * 1.25 + r.cache_write_1h * input * 2 + r.cache_read * read + r.output * output) / 1e6;
   }
 
+  // The table's row name per split: a folder, an agent, a session by its title or else its folder.
+  const SPLITS = {
+    folder: r => r.project,
+    agent: r => r.agent || 'main session',
+    session: r => r.title || r.project,
+  };
+
   // Rows are hours, so an hour that overlaps the range counts whole.
-  function projects(T, from, to) {
-    const by = {}, unpriced = new Set();
+  function projects(T, from, to, split = 'folder') {
+    const by = {}, unpriced = new Set(), name = SPLITS[split];
     for (const r of T.filter(r => r.hour + 3600 > from && r.hour <= to)) {
-      const p = by[r.project] ||= { project: r.project, tokens: 0, cost: 0 };
+      const p = by[name(r)] ||= { name: name(r), tokens: 0, cost: 0 };
       p.tokens += r.input + r.cache_write_5m + r.cache_write_1h + r.cache_read + r.output;
       const c = cost(r);
       if (c === null) unpriced.add(r.model);
@@ -160,21 +167,22 @@
     return `$${n.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  function renderProjects(doc, T, from, now) {
-    const { rows, unpriced } = projects(T, from, now);
+  function renderProjects(doc, T, from, now, split) {
+    const { rows, unpriced } = projects(T, from, now, split);
     const cells = (...values) => {
       const tr = doc.createElement('tr');
       values.forEach((v, i) => { const td = doc.createElement(i ? 'td' : 'th'); td.textContent = v; tr.append(td); });
       return tr;
     };
-    doc.querySelector('#projects tbody').replaceChildren(...rows.map(r => cells(r.project, tokens(r.tokens), dollars(r.cost))));
+    doc.querySelector('#projects thead th').textContent = split[0].toUpperCase() + split.slice(1);
+    doc.querySelector('#projects tbody').replaceChildren(...rows.map(r => cells(r.name, tokens(r.tokens), dollars(r.cost))));
     const sum = k => rows.reduce((t, r) => t + r[k], 0);
     doc.querySelector('#projects tfoot').replaceChildren(cells('Total', tokens(sum('tokens')), dollars(sum('cost'))));
-    doc.getElementById('projects').hidden = !rows.length;
+    for (const id of ['projects', 'split']) doc.getElementById(id).hidden = !rows.length;
     doc.getElementById('unpriced').textContent = unpriced.length ? `No price for ${unpriced.join(', ')}` : '';
   }
 
-  function render(doc, S, now, days, T = [], resetFormat, line = 'steps') {
+  function render(doc, S, now, days, T = [], resetFormat, line = 'steps', split = 'folder') {
     const stepped = line !== 'smooth';
     const main = doc.querySelector('main');
     const c = current(S, now);
@@ -194,7 +202,7 @@
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
-    renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now);
+    renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now, split);
     const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
     // a framed line is its fill's top edge, and over weeks the 5 h line is noise under the weekly frames
     for (const key of KEYS.filter(k => k !== 'five_hour')) {
@@ -244,6 +252,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
+  root.Limits = { SPLITS, points, current, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

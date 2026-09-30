@@ -1,5 +1,5 @@
 #!/bin/bash
-# Adds up the tokens in the Claude Code transcripts per hour, project and model into <user>-tokens.js.
+# Adds up the tokens in the Claude Code transcripts per hour, session, agent and model into <user>-tokens.js.
 ME="$(id -un)"
 DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
 FILE="$DIR/$ME-tokens.js"
@@ -13,10 +13,10 @@ TMP="$DIR/.$ME-tally.$$"
 trap 'rm -f "$TMP".*' EXIT
 # taken before the find, so a transcript written during the run counts as changed next time
 touch "$TMP.stamp"
-# a cache from before the start folder holds the folder of each reply: read everything again, and replace the rows it put in the wrong folder
+# a cache from before a field tally now writes lacks it on every line: read everything again, and replace the rows it built without it
 # the marker stays until the new table is in place, so a run that stops half-way leaves the rebuild to the next one
 MARK="$DIR/.$ME-rebuild"
-if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start")' >/dev/null 2>&1; then touch "$MARK"; rm -f "$STAMP"; : > "$CACHE"; fi
+if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start") and has("agent") and has("title")' >/dev/null 2>&1; then touch "$MARK"; rm -f "$STAMP"; : > "$CACHE"; fi
 if [ -f "$MARK" ]; then REBUILD=true; else REBUILD=false; fi
 [ -f "$STAMP" ] && [ -f "$CACHE" ] || { rm -f "$STAMP"; : > "$CACHE"; }
 find "$PROJECTS" -name '*.jsonl' > "$TMP.all"
@@ -26,7 +26,13 @@ if [ -f "$STAMP" ]; then find "$PROJECTS" -name '*.jsonl' -newer "$STAMP" > "$TM
 # the folder a transcript started in: Claude Code writes a reply with the folder its own cd moved to, so the first reply can already be elsewhere
 [ -s "$TMP.changed" ] && tr '\n' '\0' < "$TMP.changed" | xargs -0 grep -H -m1 '"cwd":"' 2>/dev/null \
   | jq -R -n -c '[inputs | index(":{") as $i | {(.[:$i]): (.[$i + 1:] | try fromjson.cwd catch null)}] | add // {}' > "$TMP.start"
-[ -s "$TMP.changed" ] && tr '\n' '\0' < "$TMP.changed" | xargs -0 grep -H '"usage"' 2>/dev/null | jq -R -n -c --slurpfile start "$TMP.start" '
+# a renamed session's title, the last custom-title line in its transcript
+[ -s "$TMP.changed" ] && tr '\n' '\0' < "$TMP.changed" | xargs -0 grep -H '"type":"custom-title"' 2>/dev/null \
+  | jq -R -n -c '[inputs | index(":{") as $i | {(.[:$i]): (.[$i + 1:] | try fromjson.customTitle catch null)}] | add // {}' > "$TMP.title"
+# a subagent's kind, in the meta file next to its transcript
+[ -s "$TMP.changed" ] && grep '/subagents/' "$TMP.changed" | sed 's/\.jsonl$/.meta.json/' | tr '\n' '\0' | xargs -0 grep -H '"agentType"' 2>/dev/null \
+  | jq -R -n -c '[inputs | index(":{") as $i | {(.[:$i] | sub("\\.meta\\.json$"; ".jsonl")): (.[$i + 1:] | try fromjson.agentType catch null)}] | add // {}' > "$TMP.agent"
+[ -s "$TMP.changed" ] && tr '\n' '\0' < "$TMP.changed" | xargs -0 grep -H '"usage"' 2>/dev/null | jq -R -n -c --slurpfile start "$TMP.start" --slurpfile title "$TMP.title" --slurpfile agent "$TMP.agent" '
   def fields: ["input", "cache_write_5m", "cache_write_1h", "cache_read", "output"];
   [inputs | index(":{") as $i | {file: .[:$i], j: (.[$i + 1:] | try fromjson catch null)}
     | select(.j.message.usage and .j.message.id and .j.timestamp and .j.message.model != "<synthetic>")
@@ -36,6 +42,8 @@ if [ -f "$STAMP" ]; then find "$PROJECTS" -name '*.jsonl' -newer "$STAMP" > "$TM
         sub: (.file | test("/subagents/")),
         session: (.file | sub("/subagents/.*$"; "") | sub("\\.jsonl$"; "")),
         start: ($start[0][.file] // .j.cwd),
+        title: $title[0][.file],
+        agent: $agent[0][.file],
         at: .j.timestamp,
         id: .j.message.id,
         model: .j.message.model,
@@ -61,23 +69,27 @@ jq -n -c --rawfile all "$TMP.all" --rawfile changed "$TMP.changed" '
 OLD="$FILE"; [ -f "$OLD" ] || { : > "$TMP.old"; OLD="$TMP.old"; }
 jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
-  def key: "\(.hour)|\(.project)|\(.model)|\(.speed)";
+  def key: "\(.hour)|\(.project)|\(.session)|\(.agent)|\(.model)|\(.speed)";
   def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
   def fields: ["input", "cache_write_5m", "cache_write_1h", "cache_read", "output"];
 
   [inputs] as $lines
   # a session belongs to the folder it started in: `cd` moves cwd, and a subagent starts wherever the session is
   | (reduce ($lines | sort_by(.sub, .at))[] as $l ({}; .[$l.session] //= $l.start)) as $project
+  | (reduce $lines[] as $l ({}; .[$l.session] //= $l.title)) as $title
   # a resumed session copies earlier messages into its own transcript, so a message counts once across files
   | [$lines | group_by(.id)[] | . as $g | $g[0] + (fields | map(. as $f | {($f): ($g | map(.[$f]) | max)}) | add)] as $messages
-  | [$messages | map(.project = ($project[.session] | home)) | group_by(key)[]
-      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model} + (if .[0].speed then {speed: .[0].speed} else {} end) + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
+  | [$messages | map(.project = ($project[.session] | home) | .title = $title[.session] | .session |= sub(".*/"; "")) | group_by(key)[]
+      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model, session: .[0].session}
+        + (.[0] | {speed, agent, title} | with_entries(select(.value != null)))
+        + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
   # Claude Code deletes transcripts after 30 days, so a row never shrinks
   | ($new | map({(.hour | tostring): true}) | add // {}) as $hours
   # except on a rebuild: an old row may hold the tokens of a moved session, even under a folder that is also a real one, so the new rows replace every hour the transcripts still cover
   | ($old | rows | if $rebuild then map(select($hours[.hour | tostring] | not)) else . end) + $new | group_by(key)
-  | map(. as $g | .[0] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
-  | sort_by(.hour, .project, .model)[]
+  # the newest row names the session: a rename moves its rows
+  | map(. as $g | .[-1] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
+  | sort_by(.hour, .project, .session, .model)[]
   | "T.push(\(tojson));"
 ' "$CACHE" > "$TMP.out" && [ -s "$TMP.out" ] && mv "$TMP.out" "$FILE" && rm -f "$MARK"
 mv "$TMP.stamp" "$STAMP"

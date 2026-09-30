@@ -260,17 +260,36 @@ test('projects: summed across models and accounts, dearest first', () => {
     row(T0 + H, '~/a', 'claude-sonnet-5', { output: 1e6 }),
   ];
   const { rows } = Limits.projects(T, T0, T0 + 2 * H);
-  assert.deepEqual(rows.map(r => [r.project, r.tokens, r.cost]), [['~/b', 1e6, 50], ['~/a', 2e6, 30]]);
+  assert.deepEqual(rows.map(r => [r.name, r.tokens, r.cost]), [['~/b', 1e6, 50], ['~/a', 2e6, 30]]);
 });
 
 test('projects: an hour counts when it overlaps the range', () => {
   const T = [row(T0 - 2 * H, '~/old', 'claude-opus-5', { output: 1 }), row(T0 - H + 1, '~/edge', 'claude-opus-5', { output: 1 })];
-  assert.deepEqual(Limits.projects(T, T0, T0 + H).rows.map(r => r.project), ['~/edge']);
+  assert.deepEqual(Limits.projects(T, T0, T0 + H).rows.map(r => r.name), ['~/edge']);
 });
 
 test('projects: unknown models are named, their tokens still counted', () => {
   const { rows, unpriced } = Limits.projects([row(T0, '~/a', 'claude-next-9', { output: 5 })], T0, T0 + H);
   assert.deepEqual([rows[0].tokens, rows[0].cost, unpriced], [5, 0, ['claude-next-9']]);
+});
+
+test('projects: split by agent, the session itself as main session', () => {
+  const T = [
+    row(T0, '~/a', 'claude-opus-5-5', { output: 1e6 }),
+    row(T0, '~/a', 'claude-haiku-4-5', { output: 1e6, agent: 'Explore' }),
+    row(T0 + H, '~/b', 'claude-haiku-4-5', { output: 1e6, agent: 'Explore' }),
+  ];
+  const { rows } = Limits.projects(T, T0, T0 + 2 * H, 'agent');
+  assert.deepEqual(rows.map(r => [r.name, r.tokens, r.cost]), [['main session', 1e6, 20], ['Explore', 2e6, 10]]);
+});
+
+test('projects: split by session, its title or else its folder', () => {
+  const T = [
+    row(T0, '~/a', 'claude-opus-5-5', { output: 1e6, session: 's1', title: 'Deploy plan' }),
+    row(T0, '~/a', 'claude-opus-5-5', { output: 2e6, session: 's2' }),
+    row(T0, '~/a', 'claude-opus-5-5', { output: 3e6, session: 's3' }),
+  ];
+  assert.deepEqual(Limits.projects(T, T0, T0 + H, 'session').rows.map(r => [r.name, r.tokens]), [['~/a', 5e6], ['Deploy plan', 1e6]]);
 });
 
 test('tokens: short units', () => {

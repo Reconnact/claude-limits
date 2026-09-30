@@ -65,6 +65,8 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   #days span::before { content: ""; position: absolute; left: 0; bottom: 0; height: calc(clamp(220px, 44vh, 480px) + 2.1em); border-left: 1px solid var(--rule); }
 
   .projects { margin-top: clamp(40px, 7vw, 80px); }
+  #split { display: inline-flex; margin-bottom: 14px; }
+  #split[hidden] { display: none; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
   th, td { padding: .55em 0; border-bottom: 1px solid var(--rule); font-weight: 400; text-align: right; white-space: nowrap; }
   th:first-child { text-align: left; overflow: hidden; text-overflow: ellipsis; }
@@ -114,6 +116,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
     <div id="days"></div>
   </figure>
   <section class="projects">
+    <nav id="split" aria-label="Table split" hidden><a data-by="folder">Folder</a><a data-by="agent">Agent</a><a data-by="session">Session</a></nav>
     <table id="projects" hidden><thead><tr><th>Project</th><th>Tokens</th><th>API price</th></tr></thead><tbody></tbody><tfoot></tfoot></table>
     <p id="unpriced"></p>
   </section>
@@ -126,6 +129,7 @@ const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
 const RANGES = { '5h': 5 / 24, 1: 1, 7: 7, 30: 30, all: 'all' };
 const days = () => PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
 const line = () => PARAMS.get('line') === 'smooth' ? 'smooth' : 'steps';
+const split = () => PARAMS.get('by') in Limits.SPLITS ? PARAMS.get('by') : 'folder';
 const NAV = document.querySelectorAll('nav a');
 const mark = () => {
   for (const a of NAV) {
@@ -133,7 +137,7 @@ const mark = () => {
     const params = new URLSearchParams(PARAMS);
     params.set(key, value);
     a.href = `?${params}`;
-    if (value === { days: days(), line: line() }[key]) a.setAttribute('aria-current', 'page');
+    if (value === { days: days(), line: line(), by: split() }[key]) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
 };
@@ -154,7 +158,7 @@ const load = (src, done) => {
   el.onload = el.onerror = () => { el.remove(); done(); };
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[days()], T, PARAMS.get('reset') || undefined, line());
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[days()], T, PARAMS.get('reset') || undefined, line(), split());
 // the data again, drawn in place: a reload would open the page empty and at the top
 function refresh() {
   S = []; T = []; SOURCES = [];

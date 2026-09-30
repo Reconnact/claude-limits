@@ -137,6 +137,28 @@ msg big "$HOME/Workspace/a" 2026-09-30T14:00:00.000Z claude-opus-5-5 6 >> "$TMP/
 ./tally
 check "a table past 1 MiB still takes a new row" "6" "$(rows 'select(.hour == 1790776800 and .project == "~/Workspace/a") | .output')"
 
+# a subagent's kind sits in the meta file next to its transcript, a renamed session's title in its own transcript
+mkdir -p "$TMP/claude/projects/t/s12/subagents/workflows/wf_1"
+{
+  printf '{"type":"user","cwd":"%s/Workspace/g","timestamp":"2026-09-30T16:00:00.000Z"}\n' "$HOME"
+  msg g1 "$HOME/Workspace/g" 2026-09-30T16:00:05.000Z claude-opus-5-5 1
+  printf '{"type":"custom-title","customTitle":"Old name","sessionId":"s12"}\n'
+  printf '{"type":"custom-title","customTitle":"Deploy plan","sessionId":"s12"}\n'
+} > "$TMP/claude/projects/t/s12.jsonl"
+msg g2 "$HOME/Workspace/g" 2026-09-30T16:10:00.000Z claude-haiku-4-5-20251001 2 > "$TMP/claude/projects/t/s12/subagents/agent-a.jsonl"
+printf '{"agentType":"Explore","description":"find things"}\n' > "$TMP/claude/projects/t/s12/subagents/agent-a.meta.json"
+msg g3 "$HOME/Workspace/g" 2026-09-30T16:20:00.000Z claude-sonnet-5-5 3 > "$TMP/claude/projects/t/s12/subagents/workflows/wf_1/agent-b.jsonl"
+printf '{"agentType":"workflow-subagent"}\n' > "$TMP/claude/projects/t/s12/subagents/workflows/wf_1/agent-b.meta.json"
+./tally
+g() { rows "select(.project == \"~/Workspace/g\") | $1" | tr -d '"' | paste -sd '|' -; }
+check "a subagent row names its agent, the session's own row has none" 'Explore|-|workflow-subagent' "$(g '.agent // "-"')"
+check "a row carries its session" 's12|s12|s12' "$(g '.session')"
+check "a renamed session's rows carry its last title, its subagents' rows too" 'Deploy plan|Deploy plan|Deploy plan' "$(g '.title')"
+printf '{"type":"custom-title","customTitle":"Newer name","sessionId":"s12"}\n' >> "$TMP/claude/projects/t/s12.jsonl"
+./tally
+check "a rename after the tally moves the rows instead of adding a second set" 'Newer name|Newer name|Newer name' "$(g '.title')"
+check "a cache from before the session fields is read again" "yes" "$(jq -c 'del(.agent)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE" && ./tally && head -1 "$CACHE" | jq -e 'has("agent")' >/dev/null && echo yes || echo no)"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally
