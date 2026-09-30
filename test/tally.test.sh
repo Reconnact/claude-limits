@@ -108,7 +108,11 @@ mkdir -p "$TMP/claude/projects/r"
   printf '{"type":"user","cwd":"%s/Workspace/e","timestamp":"2026-09-30T14:05:00.000Z"}\n' "$HOME"
   msg d2 "$HOME/Workspace/e" 2026-09-30T14:10:00.000Z claude-opus-4-8 7
 } > "$TMP/claude/projects/r/s9.jsonl"
+# a deleted transcript in an hour the rebuild recounts takes its tokens with it
+msg f1 "$HOME/Workspace/f" 2026-09-30T15:00:05.000Z claude-opus-4-8 3 > "$TMP/claude/projects/r/s10.jsonl"
+msg f2 "$HOME/Workspace/f" 2026-09-30T15:10:00.000Z claude-opus-4-8 4 > "$TMP/claude/projects/r/s11.jsonl"
 ./tally
+rm "$TMP/claude/projects/r/s11.jsonl"
 jq -c 'del(.start)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE"
 sed 's/^T.push(//; s/);$//' "$OUT" \
   | jq -c 'select(.project != "~/Workspace/d") | if .project == "~/Workspace/e" then .output = 12 else . end' \
@@ -116,6 +120,7 @@ sed 's/^T.push(//; s/);$//' "$OUT" \
 ./tally
 check "an old cache, a row shared with a moved session loses its tokens" "7" "$(rows 'select(.project == "~/Workspace/e") | .output')"
 check "an old cache, the moved session gets its row back" "5" "$(rows 'select(.project == "~/Workspace/d") | .output')"
+check "an old cache, a deleted transcript's tokens in a recounted hour go" "3" "$(rows 'select(.project == "~/Workspace/f") | .output')"
 
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
