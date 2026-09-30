@@ -87,11 +87,11 @@
     return [{ t: start, pct: at(start) }, ...line.filter(p => p.t > start && p.t < end), { t: end, pct: at(end) }];
   }
 
-  // Each window runs from its reset minus its length to its reset; its fill is the line inside it.
+  // Each window runs from its reset minus its length to its reset, as high as its peak; its fill is the line inside it.
   function windows(S, key, from, to) {
-    const lines = segments(S, key, from, to);
-    return [...new Set(points(S, key).map(p => p.resets_at))]
-      .map(end => ({ start: end - LENGTH[key], end }))
+    const lines = segments(S, key, from, to), pts = points(S, key);
+    return [...new Set(pts.map(p => p.resets_at))]
+      .map(end => ({ start: end - LENGTH[key], end, peak: Math.max(...pts.filter(p => p.resets_at === end).map(p => p.pct)) }))
       .filter(w => w.end > from && w.start < to)
       .map(w => ({ ...w, fill: lines.map(line => clip(line, w.start, w.end)).filter(l => l.length) }));
   }
@@ -191,7 +191,7 @@
     frames.setAttribute('class', framed);
     frames.replaceChildren(...windows(S, framed, from, now).flatMap(w => [
       ...w.fill.map(line => el('path', { class: 'fill', d: `${path(line, from, now, 700, 160)}V160H${x(line[0].t)}Z` })),
-      el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 0, width: x(Math.min(w.end, now)) - x(Math.max(w.start, from)), height: 160 }),
+      el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 160 - Math.min(w.peak, 100) * 1.6, width: x(Math.min(w.end, now)) - x(Math.max(w.start, from)), height: Math.min(w.peak, 100) * 1.6 }),
     ]));
 
     const labels = doc.getElementById('days');

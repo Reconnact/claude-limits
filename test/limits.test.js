@@ -273,6 +273,7 @@ test('windows: one per reset, starting one window length before it', () => {
   const w = Limits.windows(S, 'five_hour', T0, T0 + 7 * H);
   assert.deepEqual(w.map(w => [w.start, w.end]), [[T0, T0 + 5 * H], [T0 + 6 * H, T0 + 11 * H]]);
   assert.deepEqual(w[0].fill[0].map(p => p.pct), [10, 20, 0]);
+  assert.deepEqual(w.map(w => w.peak), [20, 5]);
 });
 
 test('windows: a weekly window outside the range is left out', () => {
