@@ -70,10 +70,9 @@ jq -n -r --arg home "$HOME" --arg old "$OLD" --argjson rebuild "$REBUILD" '
   | [$messages | map(.project = ($project[.session] | home)) | group_by(key)[]
       | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model} + (if .[0].speed then {speed: .[0].speed} else {} end) + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
   # Claude Code deletes transcripts after 30 days, so a row never shrinks
-  | ($new | map({(key): true}) | add // {}) as $keys
   | ($new | map({(.hour | tostring): true}) | add // {}) as $hours
-  # except on a rebuild: in an hour the transcripts still cover, a row the new ones lack sat in the wrong folder
-  | ($old | rows | if $rebuild then map(select($keys[key] or ($hours[.hour | tostring] | not))) else . end) + $new | group_by(key)
+  # except on a rebuild: an old row may hold the tokens of a moved session, even under a folder that is also a real one, so the new rows replace every hour the transcripts still cover
+  | ($old | rows | if $rebuild then map(select($hours[.hour | tostring] | not)) else . end) + $new | group_by(key)
   | map(. as $g | .[0] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
   | sort_by(.hour, .project, .model)[]
   | "T.push(\(tojson));"
