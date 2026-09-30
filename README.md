@@ -6,7 +6,7 @@ The 5 h and 7 d Claude limits, recorded by the Claude Code status line and shown
 
 - Claude Code passes `rate_limits` to the status line script on stdin
 - `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
-- `index.html` loads every account's file as a script and draws the two numbers and the last 7 days
+- `index.html` loads every account's file as a script and draws the two numbers and their history
 
 Each macOS account writes its own file. The limits belong to the Claude account, so two macOS accounts on one Claude login report the same number.
 
@@ -29,7 +29,17 @@ Account names other than `hw` and `reconnact` go into `SOURCES` in `index.html`.
 open ~/Workspace/claude-limits/index.html
 ```
 
+The links under the chart switch between 7 days, 30 days and everything (`?days=7`, `30`, `all`). More than a day without a snapshot shows as a break in the line.
+
 `?dir=<url>` reads the data from another folder.
+
+## Old data
+
+```sh
+./import-usage-for-claude <history.jsonl>...
+```
+
+Turns the history of the Usage for Claude app into `usage-for-claude.js` next to the other data files. Every run writes the file anew, so pass all history files at once.
 
 ## Test
 

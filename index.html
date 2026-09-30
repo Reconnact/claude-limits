@@ -21,7 +21,7 @@
   figure { margin: 64px 0 0; }
   svg { display: block; width: 100%; height: 160px; overflow: visible; }
   .grid { stroke: #2c323a; stroke-width: 1; vector-effect: non-scaling-stroke; }
-  path { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  path { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
   #line-five_hour { stroke: #5c6370; }
   #line-seven_day { stroke: #dadada; }
   #days { position: relative; height: 1.5em; margin-top: .5em; font-size: .75rem; color: #5c6370; }
@@ -30,6 +30,9 @@
   figcaption i { display: inline-block; width: 1.2em; height: 0; margin-right: .5em; vertical-align: middle; border-top: 1.5px solid; }
   figcaption .h5 i { color: #5c6370; }
   figcaption .d7 i { color: #dadada; }
+  nav { margin-left: auto; display: flex; gap: 1.5em; }
+  nav a { color: #5c6370; text-decoration: none; }
+  nav a.on { color: #dadada; }
 
   footer { margin-top: 48px; font-size: .75rem; color: #5c6370; }
 </style>
@@ -47,21 +50,32 @@
       <path id="line-seven_day"/>
     </svg>
     <div id="days"></div>
-    <figcaption><span class="h5"><i></i>5 h</span><span class="d7"><i></i>7 d</span></figcaption>
+    <figcaption>
+      <span class="h5"><i></i>5 h</span><span class="d7"><i></i>7 d</span>
+      <nav><a data-days="7">7 d</a><a data-days="30">30 d</a><a data-days="all">all</a></nav>
+    </figcaption>
   </figure>
   <footer id="asof"></footer>
 </main>
 <script src="limits.js"></script>
 <script>
 // A page opened from disk may not fetch a file, but it may load one as a script.
-const DIR = new URLSearchParams(location.search).get('dir') || 'file:///Users/Shared/claude-limits';
-const SOURCES = ['hw', 'reconnact'];
+const PARAMS = new URLSearchParams(location.search);
+const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
+const DAYS = PARAMS.get('days') || '7';
+const SOURCES = ['hw', 'reconnact', 'usage-for-claude'];
+for (const a of document.querySelectorAll('nav a')) {
+  const params = new URLSearchParams(PARAMS);
+  params.set('days', a.dataset.days);
+  a.href = `?${params}`;
+  a.classList.toggle('on', a.dataset.days === DAYS);
+}
 var S = [];
 let left = SOURCES.length;
 for (const name of SOURCES) {
   const el = document.createElement('script');
   el.src = `${DIR}/${name}.js`;
-  el.onload = el.onerror = () => { if (!--left) Limits.render(document, S, Date.now() / 1000); };
+  el.onload = el.onerror = () => { if (!--left) Limits.render(document, S, Date.now() / 1000, DAYS === 'all' ? DAYS : Number(DAYS)); };
   document.head.append(el);
 }
 </script>

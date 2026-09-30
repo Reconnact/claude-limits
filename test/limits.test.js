@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const Limits = require('../limits.js');
 
 const H = 3600;
+const DAY = 24 * H;
 const T0 = 1790000000;
 
 function snap(ts, source, h5, d7) {
@@ -90,45 +91,98 @@ test('current: a window that never came is null', () => {
   assert.equal(Limits.current(S, T0 + 10).seven_day, null);
 });
 
-test('steps: the line drops to 0 where a window ends', () => {
+test('segments: the line drops to 0 where a window ends and runs to the right edge', () => {
   const S = [
     snap(T0 + 100, 'reconnact', [80, T0 + 5 * H], null),
     snap(T0 + 6 * H, 'reconnact', [3, T0 + 11 * H], null),
   ];
-  const steps = Limits.steps(S, 'five_hour', T0, T0 + 7 * H);
-  assert.deepEqual(steps, [
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 7 * H), [[
     { t: T0 + 100, pct: 80 },
     { t: T0 + 5 * H, pct: 0 },
     { t: T0 + 6 * H, pct: 3 },
-  ]);
+    { t: T0 + 7 * H, pct: 3 },
+  ]]);
 });
 
-test('steps: a reset still ahead adds no drop', () => {
+test('segments: a reset still ahead adds no drop', () => {
   const S = [snap(T0 + 100, 'reconnact', [80, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.steps(S, 'five_hour', T0, T0 + H), [{ t: T0 + 100, pct: 80 }]);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + H), [[
+    { t: T0 + 100, pct: 80 },
+    { t: T0 + H, pct: 80 },
+  ]]);
 });
 
-test('steps: the value before the range carries into it', () => {
+test('segments: the value before the range carries into it', () => {
   const S = [
     snap(T0 - 500, 'reconnact', [30, T0 + 5 * H], null),
     snap(T0 + 100, 'reconnact', [35, T0 + 5 * H], null),
   ];
-  assert.deepEqual(Limits.steps(S, 'five_hour', T0, T0 + H), [
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + H), [[
     { t: T0, pct: 30 },
     { t: T0 + 100, pct: 35 },
+    { t: T0 + H, pct: 35 },
+  ]]);
+});
+
+test('segments: no snapshots, no line', () => {
+  assert.deepEqual(Limits.segments([], 'five_hour', T0, T0 + H), []);
+});
+
+test('segments: more than a day without a snapshot breaks the line', () => {
+  const S = [
+    snap(T0, 'hw', [50, T0 + 5 * H], null),
+    snap(T0 + 3 * DAY, 'hw', [10, T0 + 3 * DAY + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 - H, T0 + 3 * DAY + H), [
+    [{ t: T0, pct: 50 }, { t: T0, pct: 50 }],
+    [{ t: T0 + 3 * DAY, pct: 10 }, { t: T0 + 3 * DAY + H, pct: 10 }],
   ]);
 });
 
-test('steps: nothing in range, nothing before', () => {
-  assert.deepEqual(Limits.steps([], 'five_hour', T0, T0 + H), []);
+test('segments: snapshots that repeat a value keep the line going', () => {
+  const week = [40, T0 + 100 * H];
+  const S = [0, 12, 24, 36].map(h => snap(T0 + h * H, 'hw', null, week));
+  assert.deepEqual(Limits.segments(S, 'seven_day', T0, T0 + 36 * H), [[
+    { t: T0, pct: 40 },
+    { t: T0 + 36 * H, pct: 40 },
+  ]]);
 });
 
-test('path: a step line scaled to the box, held until the right edge', () => {
-  const steps = [{ t: 0, pct: 50 }, { t: 50, pct: 100 }];
-  assert.equal(Limits.path(steps, 0, 100, 200, 100), 'M0 50H100V0H200');
+test('segments: a snapshot without the window counts as 0', () => {
+  const S = [
+    snap(T0, 'hw', [80, T0 + H], [40, T0 + 100 * H]),
+    snap(T0 + 2 * H, 'hw', null, [40, T0 + 100 * H]),
+  ];
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 2 * H), [[
+    { t: T0, pct: 80 },
+    { t: T0 + H, pct: 0 },
+    { t: T0 + 2 * H, pct: 0 },
+  ]]);
 });
 
-test('path: no steps, no path', () => {
+test('segments: a last snapshot older than a day ends the line there', () => {
+  const S = [
+    snap(T0, 'hw', [50, T0 + 5 * H], null),
+    snap(T0 + H, 'hw', [60, T0 + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 3 * DAY), [[
+    { t: T0, pct: 50 },
+    { t: T0 + H, pct: 60 },
+    { t: T0 + H, pct: 60 },
+  ]]);
+});
+
+test('segments: a line that ended before the range is left out', () => {
+  const S = [snap(T0, 'hw', [50, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), []);
+});
+
+test('path: a step line scaled to the box', () => {
+  const line = [{ t: 0, pct: 50 }, { t: 50, pct: 100 }, { t: 100, pct: 100 }];
+  assert.equal(Limits.path(line, 0, 100, 200, 100), 'M0 50H100V0H200V0');
+});
+
+test('path: no points, no path', () => {
   assert.equal(Limits.path([], 0, 100, 200, 100), '');
 });
 

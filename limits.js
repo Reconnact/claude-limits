@@ -2,6 +2,7 @@
   const SAME_WINDOW = 60;   // resets_at moves by a few seconds between responses, a new window by hours
   const STALE = 30 * 60;
   const DAY = 24 * 3600;
+  const GAP = DAY;
 
   // One point per rise: both accounts report the same number, and an idle session repeats an old one.
   function points(S, key) {
@@ -35,26 +36,38 @@
     };
   }
 
-  function steps(S, key, from, to) {
-    const all = [];
+  // One line per stretch of snapshots: more than a day without one is no data, not 0 %.
+  function segments(S, key, from, to) {
+    const steps = [];
     const pts = points(S, key);
     pts.forEach((p, i) => {
-      all.push({ t: p.t, pct: p.pct });
+      steps.push({ t: p.t, pct: p.pct });
       const next = pts[i + 1];
       const ends = !next || next.resets_at !== p.resets_at;
-      if (ends && p.resets_at <= to && (!next || p.resets_at <= next.t)) all.push({ t: p.resets_at, pct: 0 });
+      if (ends && p.resets_at <= to && (!next || p.resets_at <= next.t)) steps.push({ t: p.resets_at, pct: 0 });
     });
-    const before = all.filter(p => p.t < from).pop();
-    const inside = all.filter(p => p.t >= from && p.t <= to);
-    return before ? [{ t: from, pct: before.pct }, ...inside] : inside;
+    const at = t => (steps.filter(p => p.t <= t).pop() || { pct: 0 }).pct;
+
+    const spans = [];
+    for (const t of S.map(s => s.ts).filter(t => t <= to).sort((a, b) => a - b)) {
+      const last = spans[spans.length - 1];
+      if (last && t - last[1] <= GAP) last[1] = t;
+      else spans.push([t, t]);
+    }
+    const last = spans[spans.length - 1];
+    if (last && to - last[1] <= GAP) last[1] = to;
+
+    return spans.filter(([, end]) => end >= from).map(([start, end]) => {
+      start = Math.max(start, from);
+      return [{ t: start, pct: at(start) }, ...steps.filter(p => p.t > start && p.t <= end), { t: end, pct: at(end) }];
+    });
   }
 
-  function path(steps, from, to, w, h) {
-    if (!steps.length) return '';
+  function path(line, from, to, w, h) {
     const r = v => Math.round(v * 10) / 10;
     const x = t => r((t - from) / (to - from) * w);
     const y = pct => r(h - pct / 100 * h);
-    return steps.map((p, i) => (i ? `H${x(p.t)}V${y(p.pct)}` : `M${x(p.t)} ${y(p.pct)}`)).join('') + `H${w}`;
+    return line.map((p, i) => (i ? `H${x(p.t)}V${y(p.pct)}` : `M${x(p.t)} ${y(p.pct)}`)).join('');
   }
 
   function until(t, now) {
@@ -64,7 +77,7 @@
     return parts.filter(([n], i) => n || !i).map(([n, unit]) => `${n} ${unit}`).join(' ');
   }
 
-  function render(doc, S, now) {
+  function render(doc, S, now, days) {
     const main = doc.querySelector('main');
     const c = current(S, now);
     if (!c) {
@@ -82,21 +95,25 @@
       el.classList.toggle('warn', !!w && w.pct >= 80);
     }
 
-    const from = now - 7 * DAY;
+    const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     for (const key of ['five_hour', 'seven_day']) {
-      doc.getElementById(`line-${key}`).setAttribute('d', path(steps(S, key, from, now), from, now, 700, 160));
+      const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
+      doc.getElementById(`line-${key}`).setAttribute('d', d);
     }
 
-    const days = doc.getElementById('days');
+    const labels = doc.getElementById('days');
     const midnight = new Date(now * 1000);
     midnight.setHours(0, 0, 0, 0);
-    for (let t = midnight / 1000; t > from; t -= DAY) {
+    const span = (now - from) / DAY;
+    const every = Math.ceil(span / 7);
+    const format = span <= 7 ? ['en', { weekday: 'short' }] : ['en-GB', { day: 'numeric', month: 'short' }];
+    for (let t = midnight / 1000, i = 0; t > from; t -= DAY, i++) {
       const left = (t - from) / (now - from) * 100;
-      if (left > 94) continue;
+      if (i % every || left > 94) continue;
       const label = doc.createElement('span');
       label.style.left = `${left}%`;
-      label.textContent = new Date(t * 1000).toLocaleDateString('en', { weekday: 'short' });
-      days.append(label);
+      label.textContent = new Date(t * 1000).toLocaleDateString(...format);
+      labels.append(label);
     }
 
     const at = new Date(c.ts * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -104,6 +121,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, steps, path, until, render };
+  root.Limits = { points, current, segments, path, until, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

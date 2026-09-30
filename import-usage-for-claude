@@ -1,0 +1,17 @@
+#!/bin/bash
+# Turns history.jsonl files of the Usage for Claude app into a data file for the page.
+# usage: import-usage-for-claude <history.jsonl>...
+DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
+[ -d "$DIR" ] || { mkdir -p "$DIR" && chmod 1777 "$DIR"; }
+
+jq -r -s '
+  def window($pct; $reset): if $reset == null then null else {used_percentage: $pct, resets_at: ($reset | floor)} end;
+  unique_by(.id) | sort_by(.timestamp)[]
+  | {
+      ts: (.timestamp | floor),
+      source: "usage-for-claude",
+      five_hour: window(.sessionPercentage; .sessionResetsAt),
+      seven_day: window(.weeklyAllModelsPercentage; .weeklyResetsAt)
+    }
+  | "S.push(\(tojson));"
+' "$@" > "$DIR/usage-for-claude.js"
