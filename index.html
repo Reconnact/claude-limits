@@ -48,8 +48,8 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   #frames.five_hour { --line: var(--five_hour); }
   #frames.seven_day { --line: var(--seven_day); }
   /* a band, not an outline: the bg stroke keeps neighbouring windows apart */
-  .frame { fill: var(--line); fill-opacity: .3; stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
-  #frames .fill { fill: var(--line); fill-opacity: .75; stroke: none; }
+  .frame { fill: light-dark(color-mix(in srgb, var(--line) 15%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  #frames .fill { fill: light-dark(color-mix(in srgb, var(--line) 40%, transparent), color-mix(in srgb, var(--line) 75%, transparent)); stroke: none; }
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
