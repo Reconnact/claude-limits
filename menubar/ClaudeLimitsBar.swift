@@ -1,4 +1,5 @@
 import AppKit
+import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
 struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window? }
@@ -149,7 +150,22 @@ final class Bar: NSObject, NSMenuDelegate {
         button.highlight(false)
     }
 
-    @objc func open() { NSWorkspace.shared.open(page) }
+    lazy var panel: NSPopover = {
+        let controller = NSViewController()
+        controller.view = WKWebView(frame: NSRect(x: 0, y: 0, width: 760, height: 600))
+        let popover = NSPopover()
+        popover.contentViewController = controller
+        popover.behavior = .transient
+        return popover
+    }()
+
+    // the page loads the data files from /Users/Shared as scripts, outside the repo
+    @objc func open() {
+        guard let button = item.button, let web = panel.contentViewController?.view as? WKWebView else { return }
+        web.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        NSApp.activate()
+        panel.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
 }
 
 let app = NSApplication.shared
