@@ -131,7 +131,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `chartLine` | `steps`, `smooth` | `steps` | the chart on the page from `Open page`: a step at each snapshot, or a straight line from one to the next |
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
-| `panelColumns` | `bar`, `percent`, `reset`, `pace` | `bar`, `percent`, `pace` | what a row shows after the limit's name, in this order |
+| `panelColumns` | `bar`, `percent`, `reset`, `pace` | `bar`, `percent`, `pace` | what a row shows after the limit's name, in this order; the last column ends at the panel's right edge; an empty list, like no rows, leaves only the buttons |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
 | `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace would fill it before its reset; shown as from Script Editor, macOS asks once whether to allow those |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |

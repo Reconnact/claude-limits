@@ -110,7 +110,9 @@ check "settings: panel columns in their order, the name first" "5 h 0.0 %/h 24 %
 settings '{"panelColumns":["nope","percent"]}'
 check "settings: unknown panel column dropped" "5 h 24 %" "$(row)"
 settings '{"panelColumns":[]}'
-check "settings: no columns leaves the name" "5 h" "$(row)"
+check "settings: no columns, no rows" "" "$(row)"
+settings '{"panelLimits":[]}'
+check "settings: no rows, nothing" "" "$(./menubar/claude-limits-bar --menu)"
 ./menubar/claude-limits-bar --panel "$TMP/panel-text.png"
 check "the panel renders without a bar" "yes" "$([ -s "$TMP/panel-text.png" ] && echo yes || echo no)"
 

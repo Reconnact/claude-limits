@@ -160,7 +160,8 @@ func menuBarTitle(_ all: [Snapshot], _ s: Settings, now: Double) -> String {
 }
 
 func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, fields: [String], color: NSColor)] {
-    s.panelLimits.compactMap { id in
+    if s.panelColumns.isEmpty { return [] }
+    return s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
         let p = pace(all, l.key, span: l.span, now: now)
         let fields = s.panelColumns.compactMap { c -> String? in
@@ -253,29 +254,6 @@ func meter(_ pct: Int, _ color: NSColor) -> NSImage {
 
 // the panel's content; the buttons act on the bar, or on nothing when only rendered
 func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?) -> NSView {
-    var views: [NSView] = []
-    let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-    let rows = rows(all, s, now: now)
-    var stops: [CGFloat] = []
-    for i in 0..<max(0, (rows.map(\.fields.count).max() ?? 0) - 1) {
-        let width = rows.map { $0.fields.count > i ? ($0.fields[i] as NSString).size(withAttributes: [.font: font]).width : 0 }.max() ?? 0
-        stops.append((stops.last ?? 0) + width + 16)
-    }
-    let style = NSMutableParagraphStyle()
-    style.tabStops = stops.map { NSTextTab(textAlignment: .left, location: $0) }
-    for row in rows {
-        let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.fields.joined(separator: "\t"), attributes: [.font: font, .paragraphStyle: style]))
-        text.maximumNumberOfLines = 1
-        text.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let bar = s.panelColumns.contains("bar") ? [NSImageView(image: meter(row.pct, row.color))] : []
-        views.append(NSStackView(views: bar + [text]))
-    }
-    if let age = age(all, now: now) {
-        let label = NSTextField(labelWithString: age)
-        label.textColor = .secondaryLabelColor
-        views.append(label)
-    }
-    if views.isEmpty { views.append(NSTextField(labelWithString: "no data yet")) }
     let open = NSButton(title: "Open page", image: NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)!,
                         target: target, action: #selector(Bar.open))
     open.keyEquivalent = "o"
@@ -290,6 +268,33 @@ func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?
     quit.keyEquivalent = "q"
     quit.keyEquivalentModifierMask = .command
     let buttons = NSStackView(views: [open, settings, NSView(), quit])
+    var views: [NSView] = []
+    let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    let rows = rows(all, s, now: now)
+    let count = rows.map(\.fields.count).max() ?? 0
+    let widths = (0..<count).map { i in rows.map { $0.fields.count > i ? ($0.fields[i] as NSString).size(withAttributes: [.font: font]).width : 0 }.max() ?? 0 }
+    let bar = s.panelColumns.contains("bar") ? 40 + NSStackView().spacing : 0
+    // the last column ends at the panel's right edge, which the buttons set when the rows are narrower
+    let width = max(widths.reduce(0, +) + 16 * CGFloat(max(0, count - 1)), buttons.fittingSize.width - bar)
+    let style = NSMutableParagraphStyle()
+    style.tabStops = []
+    var x: CGFloat = 0
+    for i in 1..<max(1, count) {
+        x += widths[i - 1] + 16
+        style.addTabStop(i == count - 1 ? NSTextTab(textAlignment: .right, location: width) : NSTextTab(textAlignment: .left, location: x))
+    }
+    for row in rows {
+        let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.fields.joined(separator: "\t"), attributes: [.font: font, .paragraphStyle: style]))
+        text.maximumNumberOfLines = 1
+        text.setContentCompressionResistancePriority(.required, for: .horizontal)
+        views.append(NSStackView(views: (bar > 0 ? [NSImageView(image: meter(row.pct, row.color))] : []) + [text]))
+    }
+    if let age = age(all, now: now) {
+        let label = NSTextField(labelWithString: age)
+        label.textColor = .secondaryLabelColor
+        views.append(label)
+    }
+    if views.isEmpty && !s.panelLimits.isEmpty && !s.panelColumns.isEmpty { views.append(NSTextField(labelWithString: "no data yet")) }
     views.append(buttons)
     let stack = NSStackView(views: views)
     stack.orientation = .vertical
@@ -449,6 +454,8 @@ struct SettingsView: View {
         .frame(width: 380)
         }
         .formStyle(.grouped)
+        // a hair of overflow on a 2x display would otherwise show a scroll bar to a mouse user
+        .scrollDisabled(true)
         .fixedSize()
     }
 }
