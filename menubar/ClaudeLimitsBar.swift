@@ -95,13 +95,25 @@ if CommandLine.arguments.contains("--menu") {
 let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
     .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
 
+// the app has no menu bar to carry ⌘W and ⌘Q; ⌘Q only closes, the LaunchAgent's KeepAlive would restart a quit app
+final class PageWindow: NSWindow {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           ["w", "q"].contains(event.charactersIgnoringModifiers) {
+            performClose(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 final class Bar: NSObject {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let popover = NSPopover()
 
     lazy var pageWindow: NSWindow = {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = PageWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+                                styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "claude-limits"
         window.contentView = WKWebView()
         window.isReleasedWhenClosed = false

@@ -48,7 +48,7 @@ Reload for fresh numbers.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar and its reset time, and `Open page` (⌘O), which shows the page in a window of its own, fresh on each open. It re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar and its reset time, and `Open page` (⌘O), which shows the page in a window of its own, fresh on each open; ⌘W or ⌘Q closes it. It re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ## Updates
 
