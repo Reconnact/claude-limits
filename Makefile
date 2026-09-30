@@ -19,8 +19,9 @@ menubar/claude-limits-bar: menubar/ClaudeLimitsBar.swift
 	swiftc -O $< -o $@
 
 install-menubar: menubar uninstall-menubar
-	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	ln -s $(CURDIR)/menubar/claude-limits-bar $(APP)/Contents/MacOS/claude-limits-bar
+	cp menubar/AppIcon.icns $(APP)/Contents/Resources/
 	@printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
 	  '<plist version="1.0"><dict>' \
@@ -28,6 +29,7 @@ install-menubar: menubar uninstall-menubar
 	  '<key>CFBundleName</key><string>claude-limits</string>' \
 	  '<key>CFBundleExecutable</key><string>claude-limits-bar</string>' \
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
+	  '<key>CFBundleIconFile</key><string>AppIcon</string>' \
 	  '<key>LSUIElement</key><true/>' \
 	  '</dict></plist>' > $(APP)/Contents/Info.plist
 	@printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
