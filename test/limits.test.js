@@ -301,6 +301,15 @@ test('projects: split by source, the entrypoint of the run', () => {
   assert.deepEqual(Limits.projects(T, T0, T0 + H, 'source').rows.map(r => [r.name, r.tokens]), [['sdk-cli', 2e6], ['cli', 1e6], ['?', 1e6]]);
 });
 
+test('projects: split by machine, the host tally ran on', () => {
+  const T = [
+    row(T0, '~/a', 'claude-opus-5-5', { output: 1e6, host: 'Snowden' }),
+    row(T0, '~/a', 'claude-opus-5-5', { output: 2e6, host: 'server' }),
+    row(T0, '~/a', 'claude-opus-5-5', { output: 1e6 }),
+  ];
+  assert.deepEqual(Limits.projects(T, T0, T0 + H, 'machine').rows.map(r => [r.name, r.tokens]), [['server', 2e6], ['Snowden', 1e6], ['?', 1e6]]);
+});
+
 test('tokens: short units', () => {
   assert.deepEqual([999, 1500, 2.5e6, 345.8e6, 1.44e9].map(Limits.tokens), ['999', '1.5 k', '2.5 M', '346 M', '1.4 B']);
 });

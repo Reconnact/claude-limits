@@ -163,6 +163,8 @@ msg h1 "$HOME/Workspace/g" 2026-09-30T17:00:00.000Z claude-opus-5-5 4 | sed 's/^
 check "a headless run's row names its entrypoint, one without has none" 'sdk-cli|-' "$(rows 'select(.project == "~/Workspace/g" and .model == "claude-opus-5-5") | .entry // "-"' | tr -d '"' | sort -r | paste -sd '|' -)"
 check "a cache from before the session fields is read again" "yes" "$(jq -c 'del(.entry)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE" && ./tally && head -1 "$CACHE" | jq -e 'has("entry")' >/dev/null && echo yes || echo no)"
 
+check "a row names the machine it was counted on" "$(uname -n | cut -d. -f1)" "$(rows 'select(.hour >= 1790762400) | .host' | tr -d '"' | sort -u | paste -sd '|' -)"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally

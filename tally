@@ -68,7 +68,7 @@ jq -n -c --rawfile all "$TMP.all" --rawfile changed "$TMP.changed" '
 
 # from its file: past 1 MiB the table no longer fits into an argument, and the exec fails without a word
 OLD="$FILE"; [ -f "$OLD" ] || { : > "$TMP.old"; OLD="$TMP.old"; }
-jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
+jq -n -r --arg home "$HOME" --arg host "$(uname -n | cut -d. -f1)" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
   def key: "\(.hour)|\(.project)|\(.session)|\(.agent)|\(.entry)|\(.model)|\(.speed)";
   def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
@@ -81,7 +81,7 @@ jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   # a resumed session copies earlier messages into its own transcript, so a message counts once across files
   | [$lines | group_by(.id)[] | . as $g | $g[0] + (fields | map(. as $f | {($f): ($g | map(.[$f]) | max)}) | add)] as $messages
   | [$messages | map(.project = ($project[.session] | home) | .title = $title[.session] | .session |= sub(".*/"; "")) | group_by(key)[]
-      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model, session: .[0].session}
+      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model, session: .[0].session, host: $host}
         + (.[0] | {speed, agent, title, entry} | with_entries(select(.value != null)))
         + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
   # Claude Code deletes transcripts after 30 days, so a row never shrinks

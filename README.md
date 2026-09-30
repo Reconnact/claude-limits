@@ -8,7 +8,7 @@
 
 - **At a glance.** A pie in the menu bar fills up with the 5-hour window. One click shows all three limits and when they reset.
 - **With history.** Every window on a chart, from the last 5 hours to everything ever recorded, so you see how fast a week fills up.
-- **With a price tag.** Tokens per folder, agent, session or source, and what they would cost on the API.
+- **With a price tag.** Tokens per folder, agent, session, source or machine, and what they would cost on the API.
 - **No polling.** Claude Code's status line records the limits on every turn you take.
 
 <table>
@@ -58,6 +58,23 @@ IFS=$'\t' read -r H5 D7 < <("$HOME/claude-limits/collect" <<<"$INPUT" 2>/dev/nul
 
 Run `install` once in each account. Every account writes its own file into `/Users/Shared/claude-limits`, and the page and menu bar read all of them. Accounts on the same Claude login report the same limits, so the page shows one line per limit.
 
+### Tokens from another machine
+
+The limits belong to the Claude account, so the page shows every machine's turns. The token table shows only the transcripts `tally` has read, and it reads this Mac's. On a Linux box that runs Claude Code too, `tally` needs bash, jq and the transcripts and nothing else:
+
+```sh
+CLAUDE_LIMITS_DIR=~/claude-limits-data ~/claude-limits/tally
+```
+
+writes `<user>-tokens.js` there, from cron say. Bring it over under a name of its own, list that name once, and the page adds it up, with Machine as one more split:
+
+```sh
+rsync server:claude-limits-data/jochen-tokens.js /Users/Shared/claude-limits/server-tokens.js
+echo 'SOURCES.push("server");' >> /Users/Shared/claude-limits/sources.js
+```
+
+`tally` uses nothing from macOS, but it has only been run there.
+
 ### On your phone
 
 <img src="docs/phone.jpg" alt="The same page at iPhone width, inside Obsidian">
@@ -71,7 +88,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in instead of a line; beyond 7 days the 5 h windows are left out
 - "as of" is the last check, which is every Claude Code turn; after 30 minutes without one it shows its age in full contrast
-- a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, agent, session or source (`?by=folder`, `agent`, `session`, `source`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder, Source is the entrypoint of the run, `cli` for a terminal and `sdk-cli` for `claude -p`
+- a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, agent, session, source or machine (`?by=folder`, `agent`, `session`, `source`, `machine`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder, Source is the entrypoint of the run, `cli` for a terminal and `sdk-cli` for `claude -p`, Machine the host `tally` counted on
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
 - `?theme=light` or `dark` overrides the system appearance; `Open page` passes the setting
