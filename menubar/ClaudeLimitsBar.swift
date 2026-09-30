@@ -125,6 +125,8 @@ final class Bar: NSObject {
     override init() {
         super.init()
         popover.behavior = .transient
+        // transient alone misses clicks in other apps: the app is rarely active, activate() only asks
+        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.popover.performClose(nil) }
         item.button?.target = self
         item.button?.action = #selector(toggle)
         refresh()
