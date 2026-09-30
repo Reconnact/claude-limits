@@ -50,6 +50,16 @@ Reload for fresh numbers.
 
 Shows the 5-hour limit as a pie, from the newest snapshot of any account; a click opens the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
 
+## Updates
+
+Once a day, the next Claude Code turn pulls the newest version of your clone from its `origin` in the background, and rebuilds the menu bar item when its code changed. So whatever lands on `main` there runs on your Mac without you reviewing it first. A clone with changes of its own is left alone.
+
+To update by hand instead:
+
+```sh
+touch ~/Workspace/claude-limits/.no-update
+```
+
 ## How it works
 
 - Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
