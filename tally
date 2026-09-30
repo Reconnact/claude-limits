@@ -14,8 +14,10 @@ trap 'rm -f "$TMP".*' EXIT
 # taken before the find, so a transcript written during the run counts as changed next time
 touch "$TMP.stamp"
 # a cache from before the start folder holds the folder of each reply: read everything again, and replace the rows it put in the wrong folder
-REBUILD=false
-if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start")' >/dev/null 2>&1; then rm -f "$STAMP"; : > "$CACHE"; REBUILD=true; fi
+# the marker stays until the new table is in place, so a run that stops half-way leaves the rebuild to the next one
+MARK="$DIR/.$ME-rebuild"
+if [ -s "$CACHE" ] && ! head -1 "$CACHE" | jq -e 'has("start")' >/dev/null 2>&1; then touch "$MARK"; rm -f "$STAMP"; : > "$CACHE"; fi
+if [ -f "$MARK" ]; then REBUILD=true; else REBUILD=false; fi
 [ -f "$STAMP" ] && [ -f "$CACHE" ] || { rm -f "$STAMP"; : > "$CACHE"; }
 find "$PROJECTS" -name '*.jsonl' > "$TMP.all"
 if [ -f "$STAMP" ]; then find "$PROJECTS" -name '*.jsonl' -newer "$STAMP" > "$TMP.changed"; else cp "$TMP.all" "$TMP.changed"; fi
@@ -77,5 +79,5 @@ jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   | map(. as $g | .[0] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
   | sort_by(.hour, .project, .model)[]
   | "T.push(\(tojson));"
-' "$CACHE" > "$TMP.out" && [ -s "$TMP.out" ] && mv "$TMP.out" "$FILE"
+' "$CACHE" > "$TMP.out" && [ -s "$TMP.out" ] && mv "$TMP.out" "$FILE" && rm -f "$MARK"
 mv "$TMP.stamp" "$STAMP"

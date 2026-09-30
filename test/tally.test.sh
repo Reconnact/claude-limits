@@ -122,6 +122,15 @@ check "an old cache, a row shared with a moved session loses its tokens" "7" "$(
 check "an old cache, the moved session gets its row back" "5" "$(rows 'select(.project == "~/Workspace/d") | .output')"
 check "an old cache, a deleted transcript's tokens in a recounted hour go" "3" "$(rows 'select(.project == "~/Workspace/f") | .output')"
 
+# a rebuild that stops before the new table is written runs again next time
+jq -c 'del(.start)' "$CACHE" > "$TMP/oldcache" && mv "$TMP/oldcache" "$CACHE"
+sed 's|"project":"~/Workspace/b"|"project":"~/Workspace/b/sub"|' "$OUT" > "$TMP/oldout" && mv "$TMP/oldout" "$OUT"
+mkdir -p "$TMP/bin"
+printf '#!/bin/sh\ncase "$*" in *--argjson*) exit 1;; esac\nexec %s "$@"\n' "$(command -v jq)" > "$TMP/bin/jq"; chmod +x "$TMP/bin/jq"
+PATH="$TMP/bin:$PATH" ./tally
+./tally
+check "a rebuild that stopped half-way runs again" '"~/Workspace/b"' "$(rows 'select(.model == "claude-sonnet-5-5") | .project' | paste -sd '|' -)"
+
 # macOS caps a command's arguments at 1 MiB, so the old table must come from its file, not from an argument
 awk 'BEGIN { for (i = 0; i < 8000; i++) printf "T.push({\"hour\":%d,\"project\":\"~/Workspace/big\",\"model\":\"claude-opus-5-5\",\"input\":1,\"cache_write_5m\":0,\"cache_write_1h\":0,\"cache_read\":0,\"output\":1});\n", 1700000000 + i * 3600 }' >> "$OUT"
 msg big "$HOME/Workspace/a" 2026-09-30T14:00:00.000Z claude-opus-5-5 6 >> "$TMP/claude/projects/p/s1.jsonl"
