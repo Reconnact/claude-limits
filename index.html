@@ -13,6 +13,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
     --bg: light-dark(#ffffff, #1c2127); --track: light-dark(#f2f4f6, #242a31); --rule: light-dark(#dde1e6, #313842); --edge: light-dark(#d3d8de, #3a424c);
     --text: light-dark(#1c2127, #e6e6e6); --text-2: light-dark(#4a525c, #a8b0bb); --text-3: light-dark(#6b7480, #8a93a0);
     --five_hour: light-dark(#1f6fe0, #3b8eff); --seven_day: light-dark(#8b3fd9, #ba66ff); --fable: light-dark(#b35f0a, #e9973f);
+    --current: light-dark(#ffffff, #e6e6e6); --current-text: #1c2127; --current-shadow: light-dark(rgb(0 0 0 / .14), transparent);
     --focus: #981aff;
   }
   html { background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -38,7 +39,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   nav { display: flex; padding: 3px; border: 1px solid var(--edge); border-radius: 10px; background: var(--track); }
   nav a { min-width: 3.2em; padding: .45em .8em; border-radius: 7px; font-size: .9rem; font-weight: 500; text-align: center; color: var(--text-2); text-decoration: none; }
   nav a:hover { color: var(--text); background: var(--rule); }
-  nav a[aria-current] { color: var(--bg); background: var(--text); }
+  nav a[aria-current] { color: var(--current-text); background: var(--current); box-shadow: 0 1px 2px var(--current-shadow), 0 0 0 .5px var(--current-shadow); }
   nav a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   figure { position: relative; margin: 20px 0 0; }
@@ -48,8 +49,8 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   #frames.five_hour { --line: var(--five_hour); }
   #frames.seven_day { --line: var(--seven_day); }
   /* a band, not an outline: the bg stroke keeps neighbouring windows apart */
-  .frame { fill: light-dark(color-mix(in srgb, var(--line) 15%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
-  #frames .fill { fill: light-dark(color-mix(in srgb, var(--line) 40%, transparent), color-mix(in srgb, var(--line) 75%, transparent)); stroke: none; }
+  .frame { fill: light-dark(color-mix(in srgb, var(--line) 10%, transparent), color-mix(in srgb, var(--line) 30%, transparent)); stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  #frames .fill { fill: light-dark(color-mix(in srgb, var(--line) 22%, var(--bg)), color-mix(in srgb, var(--line) 75%, var(--bg))); stroke: none; }
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
