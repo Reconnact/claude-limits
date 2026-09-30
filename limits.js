@@ -2,7 +2,6 @@
   const SAME_WINDOW = 60;   // resets_at moves by a few seconds between responses, a new window by hours
   const STALE = 30 * 60;
   const DAY = 24 * 3600;
-  const GAP = DAY;
   const KEYS = ['five_hour', 'seven_day', 'fable'];
   const LENGTH = { five_hour: 5 * 3600, seven_day: 7 * DAY, fable: 7 * DAY };
   // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h; fast mode doubles all of it.
@@ -63,20 +62,10 @@
     });
     const at = t => (steps.filter(p => p.t <= t).pop() || { pct: 0 }).pct;
 
-    const spans = [];
-    const first = pts.length ? pts[0].t : Infinity;
-    for (const t of S.map(s => s.ts).filter(t => t >= first && t <= to).sort((a, b) => a - b)) {
-      const last = spans[spans.length - 1];
-      if (last && t - last[1] <= GAP) last[1] = t;
-      else spans.push([t, t]);
-    }
-    const last = spans[spans.length - 1];
-    if (last && to - last[1] <= GAP) last[1] = to;
-
-    return spans.filter(([, end]) => end >= from).map(([start, end]) => {
-      start = Math.max(start, from);
-      return [{ t: start, pct: at(start) }, ...steps.filter(p => p.t > start && p.t <= end), { t: end, pct: at(end) }];
-    });
+    // snapshots come only with Claude Code turns, so a gap is idle time: the value holds until its window resets
+    if (!pts.length || pts[0].t > to) return [];
+    const start = Math.max(pts[0].t, from);
+    return [[{ t: start, pct: at(start) }, ...steps.filter(p => p.t > start && p.t <= to), { t: to, pct: at(to) }]];
   }
 
   // The part of a stepped line between a and b.

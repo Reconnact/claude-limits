@@ -129,15 +129,17 @@ test('segments: no snapshots, no line', () => {
   assert.deepEqual(Limits.segments([], 'five_hour', T0, T0 + H), []);
 });
 
-test('segments: more than a day without a snapshot breaks the line', () => {
+test('segments: days without a snapshot hold the value until the reset, then 0', () => {
   const S = [
     snap(T0, 'hw', [50, T0 + 5 * H], null),
     snap(T0 + 3 * DAY, 'hw', [10, T0 + 3 * DAY + 5 * H], null),
   ];
-  assert.deepEqual(Limits.segments(S, 'five_hour', T0 - H, T0 + 3 * DAY + H), [
-    [{ t: T0, pct: 50 }, { t: T0, pct: 50 }],
-    [{ t: T0 + 3 * DAY, pct: 10 }, { t: T0 + 3 * DAY + H, pct: 10 }],
-  ]);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 - H, T0 + 3 * DAY + H), [[
+    { t: T0, pct: 50 },
+    { t: T0 + 5 * H, pct: 0 },
+    { t: T0 + 3 * DAY, pct: 10 },
+    { t: T0 + 3 * DAY + H, pct: 10 },
+  ]]);
 });
 
 test('segments: snapshots that repeat a value keep the line going', () => {
@@ -161,7 +163,7 @@ test('segments: a snapshot without the window counts as 0', () => {
   ]]);
 });
 
-test('segments: a last snapshot older than a day ends the line there', () => {
+test('segments: after the last snapshot the line runs on to the right edge', () => {
   const S = [
     snap(T0, 'hw', [50, T0 + 5 * H], null),
     snap(T0 + H, 'hw', [60, T0 + 5 * H], null),
@@ -169,13 +171,17 @@ test('segments: a last snapshot older than a day ends the line there', () => {
   assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 3 * DAY), [[
     { t: T0, pct: 50 },
     { t: T0 + H, pct: 60 },
-    { t: T0 + H, pct: 60 },
+    { t: T0 + 5 * H, pct: 0 },
+    { t: T0 + 3 * DAY, pct: 0 },
   ]]);
 });
 
-test('segments: a line that ended before the range is left out', () => {
+test('segments: a window that reset before the range is 0 across it', () => {
   const S = [snap(T0, 'hw', [50, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), []);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), [[
+    { t: T0 + 2 * DAY, pct: 0 },
+    { t: T0 + 3 * DAY, pct: 0 },
+  ]]);
 });
 
 test('current: the fable window', () => {
