@@ -26,7 +26,7 @@ install-menubar: menubar uninstall-menubar
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
 	  '<plist version="1.0"><dict>' \
 	  '<key>CFBundleIdentifier</key><string>$(LABEL)</string>' \
-	  '<key>CFBundleName</key><string>claude-limits</string>' \
+	  '<key>CFBundleName</key><string>Claude limits</string>' \
 	  '<key>CFBundleExecutable</key><string>claude-limits-bar</string>' \
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
 	  '<key>CFBundleIconFile</key><string>AppIcon</string>' \
