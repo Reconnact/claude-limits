@@ -187,12 +187,14 @@
     for (const key of KEYS) {
       const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
-      doc.getElementById(`ramp-${key}`).setAttribute('d', ramps(S, key, from, now).map(line => path(line, from, now, 700, 160, false)).join(''));
     }
 
     const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
     // over weeks the 5 h line is noise under the weekly frames
-    if (framed === 'seven_day') for (const id of ['line-five_hour', 'ramp-five_hour']) doc.getElementById(id).setAttribute('d', '');
+    if (framed === 'seven_day') doc.getElementById('line-five_hour').setAttribute('d', '');
+    // only a framed line gets a ramp, it stays inside its window's frame
+    for (const key of KEYS)
+      doc.getElementById(`ramp-${key}`).setAttribute('d', key !== framed ? '' : ramps(S, key, from, now).map(line => path(line, from, now, 700, 160, false)).join(''));
     const frames = doc.getElementById('frames');
     const x = t => Math.round((t - from) / (now - from) * 7000) / 10;
     const el = (name, attrs) => {
