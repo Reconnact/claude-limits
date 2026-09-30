@@ -70,10 +70,11 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in; beyond 7 days the 5 h line is left out
-- "as of" is the last check, which is every Claude Code turn; after 30 minutes without one the page greys out and shows its age
+- "as of" is the last check, which is every Claude Code turn; after 30 minutes without one it shows its age in full contrast
 - a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
+- `?theme=light` or `dark` overrides the system appearance; `Open page` passes the setting
 - `?line=smooth` draws the chart as straight lines from snapshot to snapshot instead of steps; `Open page` passes the setting
 
 The page reloads itself every minute.
@@ -93,6 +94,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
   "menuBarText": "none",
   "resetFormat": "time",
   "chartLine": "steps",
+  "theme": "system",
   "panelLimits": ["five_hour", "seven_day", "fable"],
   "warnAt": 80,
   "refreshSeconds": 60
@@ -106,6 +108,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `menuBarText` | `none`, `percent`, `reset`, `both` | `none` | text after the icon, e.g. `23% · in 2 h 13 min` |
 | `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel, the menu bar and the page from `Open page` |
 | `chartLine` | `steps`, `smooth` | `steps` | the chart on the page from `Open page`: a step at each snapshot, or a straight line from one to the next |
+| `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |

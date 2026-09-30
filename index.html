@@ -2,17 +2,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude limits</title>
+<script>
+const THEME = new URLSearchParams(location.search).get('theme');
+if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorScheme = THEME;
+</script>
 <style>
+  /* light-dark(light, dark), picked by color-scheme: the system's, or ?theme= */
   :root {
-    --bg: #1c2127; --track: #242a31; --rule: #313842; --edge: #3a424c;
-    --text: #e6e6e6; --text-2: #a8b0bb; --text-3: #8a93a0;
-    --five_hour: #3b8eff; --seven_day: #ba66ff; --fable: #e9973f;
+    color-scheme: light dark;
+    --bg: light-dark(#ffffff, #1c2127); --track: light-dark(#f2f4f6, #242a31); --rule: light-dark(#dde1e6, #313842); --edge: light-dark(#d3d8de, #3a424c);
+    --text: light-dark(#1c2127, #e6e6e6); --text-2: light-dark(#4a525c, #a8b0bb); --text-3: light-dark(#6b7480, #8a93a0);
+    --five_hour: light-dark(#1f6fe0, #3b8eff); --seven_day: light-dark(#8b3fd9, #ba66ff); --fable: light-dark(#b35f0a, #e9973f);
     --focus: #981aff;
   }
   html { background: var(--bg); color: var(--text); font: 16px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
   main { width: min(1120px, 100% - 32px); padding: clamp(24px, 6vw, 72px) 0; }
-  main.stale .tiles, main.stale figure { opacity: .45; }
   main.empty .tiles, main.empty figure, main.empty nav { display: none; }
 
   .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 4vw, 56px); }
@@ -28,6 +33,7 @@
 
   .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: clamp(40px, 7vw, 80px); }
   #asof { font-size: .85rem; color: var(--text-3); }
+  main.stale #asof { color: var(--text); }
   nav { display: flex; padding: 3px; border: 1px solid var(--edge); border-radius: 10px; background: var(--track); }
   nav a { min-width: 3.2em; padding: .45em .8em; border-radius: 7px; font-size: .9rem; font-weight: 500; text-align: center; color: var(--text-2); text-decoration: none; }
   nav a:hover { color: var(--text); background: var(--rule); }
@@ -41,8 +47,8 @@
   #frames.five_hour { --line: var(--five_hour); }
   #frames.seven_day { --line: var(--seven_day); }
   /* a band, not an outline: the bg stroke keeps neighbouring windows apart */
-  .frame { fill: var(--line); fill-opacity: .12; stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
-  #frames .fill { fill: var(--line); fill-opacity: .28; stroke: none; }
+  .frame { fill: var(--line); fill-opacity: .3; stroke: var(--bg); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  #frames .fill { fill: var(--line); fill-opacity: .75; stroke: none; }
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
