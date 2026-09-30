@@ -407,7 +407,10 @@ final class Bar: NSObject {
         popover.performClose(nil)
         // the page cannot read ~/.config, so the reset format comes along as ?reset=
         let url = URL(string: "?reset=\(store.settings.resetFormat)", relativeTo: page)!.absoluteURL
-        (pageWindow.contentView as? WKWebView)?.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        // the reused web view would serve the data scripts from its memory cache, even after they changed
+        WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeMemoryCache], modifiedSince: .distantPast) {
+            (self.pageWindow.contentView as? WKWebView)?.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+        }
         if !pageWindow.isVisible {
             pageWindow.setContentSize(NSSize(width: 900, height: 700))
             pageWindow.center()
