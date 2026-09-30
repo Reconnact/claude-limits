@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
@@ -32,6 +33,7 @@ struct Settings: Codable, Equatable {
     var theme = "system"
     var panelLimits = limits.map(\.id)
     var warnAt = 80
+    var notify = true
     var refreshSeconds = 60
 
     static let path = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_SETTINGS"]
@@ -53,6 +55,7 @@ struct Settings: Codable, Equatable {
         theme = pick(.theme, ["system", "light", "dark"]) ?? theme
         if let ids = try? c.decode([String].self, forKey: .panelLimits) { panelLimits = ids.filter { limits.map(\.id).contains($0) } }
         if let n = try? c.decode(Int.self, forKey: .warnAt), (0...100).contains(n) { warnAt = n }
+        if let b = try? c.decode(Bool.self, forKey: .notify) { notify = b }
         if let n = try? c.decode(Int.self, forKey: .refreshSeconds), n >= 10 { refreshSeconds = n }
     }
 
@@ -153,6 +156,21 @@ func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, elapsed:
         let p = pace(all, l.key, length: l.length, now: now)
         let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? "\(String(format: "%.1f", $0.rate)) %/h" }
         return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", text, l.color)
+    }
+}
+
+// what to notify, once per window and kind: a limit at the yellow level, a pace that fills the window before its reset
+func alerts(_ all: [Snapshot], _ s: Settings, now: Double) -> [(id: String, title: String, body: String)] {
+    guard s.notify else { return [] }
+    return limits.flatMap { l -> [(id: String, title: String, body: String)] in
+        guard let w = window(all, l.key, now: now), let reset = w.resets_at else { return [] }
+        let at = resets(reset, s.resetFormat, now: now)
+        var out: [(id: String, title: String, body: String)] = []
+        if s.warnAt > 0 && w.pct >= s.warnAt { out.append(("\(l.id)|\(Int(reset))|warn", "\(l.name) at \(w.pct) %", at)) }
+        if let full = pace(all, l.key, length: l.length, now: now)?.full {
+            out.append(("\(l.id)|\(Int(reset))|pace", "\(l.name) full \(when(full, "time", now: now))", "at this pace · \(at)"))
+        }
+        return out
     }
 }
 
@@ -274,6 +292,10 @@ if CommandLine.arguments.contains("--menu") {
     age(all, now: now).map { print($0) }
     exit(0)
 }
+if CommandLine.arguments.contains("--alerts") {
+    alerts(snapshots(), Settings.load(), now: now).forEach { print("\($0.title)\t\($0.body)") }
+    exit(0)
+}
 // the panel as a PNG, to look at it without a click; dark, as the popover in dark mode
 if let i = CommandLine.arguments.firstIndex(of: "--panel"), i + 1 < CommandLine.arguments.count {
     let view = panelView(snapshots(), Settings.load(), now: now, target: nil)
@@ -358,6 +380,7 @@ struct SettingsView: View {
                 }
                 Stepper(store.settings.warnAt == 0 ? "Never turn yellow" : "Yellow from \(store.settings.warnAt) %",
                         value: $store.settings.warnAt, in: 0...100, step: 5)
+                Toggle("Notify at the yellow level, and when the pace would fill a limit", isOn: $store.settings.notify)
             }
             Section("Reset") {
                 Picker("Show", selection: $store.settings.resetFormat) {
@@ -401,6 +424,7 @@ final class Bar: NSObject {
     let panel = NSViewController()
     let store = Store()
     var lastRefresh = 0.0
+    var notified = Set<String>()
 
     lazy var pageWindow: NSWindow = {
         let window = PageWindow(contentRect: .zero,
@@ -434,6 +458,10 @@ final class Bar: NSObject {
         item.button?.sendAction(on: .leftMouseDown)
         item.button?.imagePosition = .imageLeading
         store.changed = { [weak self] in self?.refresh(); self?.applySettings() }
+        // the notification center needs an app bundle; the tests run the bare binary
+        if store.settings.notify, Bundle.main.bundleIdentifier != nil {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
         refresh()
         applySettings()
         // ⌘Tab and the Dock list the app only while one of its windows is open
@@ -459,6 +487,10 @@ final class Bar: NSObject {
         let all = snapshots()
         let pct = shown(all, s, now: now)?.pct
         let color = s.warnAt > 0 && (pct ?? 0) >= s.warnAt ? warnColor : nil
+        for a in alerts(all, s, now: now) where !notified.contains(a.id) {
+            notified.insert(a.id)
+            notify(a)
+        }
         let text = menuBarTitle(all, s, now: now)
         let icon = s.menuBarIcon == "none" && text.isEmpty ? "pie" : s.menuBarIcon
         item.button?.image = icon == "pie" ? pie(pct, color) : icon == "bar" ? bar(pct, color) : nil
@@ -470,6 +502,14 @@ final class Bar: NSObject {
             panel.view = content()
             panel.preferredContentSize = panel.view.fittingSize
         }
+    }
+
+    func notify(_ a: (id: String, title: String, body: String)) {
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        let content = UNMutableNotificationContent()
+        content.title = a.title
+        content.body = a.body
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.id, content: content, trigger: nil))
     }
 
     // per window, not NSApp.appearance, so the menu bar item keeps the menu bar's look

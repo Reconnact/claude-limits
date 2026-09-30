@@ -116,6 +116,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
   "theme": "system",
   "panelLimits": ["five_hour", "seven_day", "fable"],
   "warnAt": 80,
+  "notify": true,
   "refreshSeconds": 60
 }
 ```
@@ -130,6 +131,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `theme` | `system`, `light`, `dark` | `system` | the page from `Open page`: the system appearance, or always light or dark |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
+| `notify` | `true`, `false` | `true` | a notification once per window when a limit reaches `warnAt`, and once when the pace of the last hour would fill it before its reset; macOS asks once whether to allow them |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
 
 A missing file or key, or a value not in the list, takes the default. With no icon and no text the pie shows.

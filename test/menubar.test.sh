@@ -109,4 +109,17 @@ check "settings: countdown in days" "resets in 3 d 4 h" "$(reset_text)"
 printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":24,"resets_at":%s}});\n' $((NOW - 60)) $((NOW + 42 * 60)) > "$TMP/hw.js"
 check "settings: countdown under an hour" "resets in 42 min" "$(reset_text)"
 
+# notifications: once when a limit reaches the yellow level, once when its pace fills the window before the reset
+alerts() { ./menubar/claude-limits-bar --alerts | cut -f1 | paste -sd '|' -; }
+line $((NOW - 60)) 85 $((NOW + 600)) > "$TMP/hw.js"
+settings '{}'
+check "alert at the yellow level" "5 h at 85 %" "$(alerts)"
+settings '{"warnAt":0}'
+check "no alert with yellow off" "" "$(alerts)"
+{ line $((NOW - 7000)) 12 $((NOW + 3 * 3600)); line $((NOW - 60)) 58 $((NOW + 3 * 3600)); } > "$TMP/hw.js"
+settings '{}'
+check "alert when the pace fills the window before its reset" "5 h full" "$(alerts | cut -c1-8)"
+settings '{"notify":false}'
+check "no alert when turned off" "" "$(alerts)"
+
 exit $FAILED
