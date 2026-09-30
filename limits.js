@@ -178,8 +178,8 @@
     const stepped = line !== 'smooth';
     const main = doc.querySelector('main');
     const c = current(S, now);
+    main.classList.toggle('empty', !c);
     if (!c) {
-      main.classList.add('empty');
       doc.getElementById('asof').textContent = 'no snapshots yet';
       return;
     }

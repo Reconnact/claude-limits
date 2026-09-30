@@ -149,20 +149,25 @@ for (const a of NAV) a.onclick = e => {
   if (S.length) draw();
 };
 var S = [], T = [], SOURCES = [];
+// a script added again with the same src comes from the cache, so each load asks for the file anew
 const load = (src, done) => {
   const el = document.createElement('script');
-  el.src = src;
-  el.onload = el.onerror = done;
+  el.src = `${src}?${Date.now()}`;
+  el.onload = el.onerror = () => { el.remove(); done(); };
   document.head.append(el);
 };
 const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[days()], T, PARAMS.get('reset') || undefined, line());
-load(`${DIR}/sources.js`, () => {
-  const names = [...new Set(SOURCES)];
-  const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
-  let left = files.length;
-  if (!left) draw();
-  for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });
-});
-// a script added again with the same src comes from the cache, a reload reads the file
-setTimeout(() => location.reload(), 60 * 1000);
+// the data again, drawn in place: a reload would open the page empty and at the top
+function refresh() {
+  S = []; T = []; SOURCES = [];
+  load(`${DIR}/sources.js`, () => {
+    const names = [...new Set(SOURCES)];
+    const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
+    let left = files.length;
+    if (!left) draw();
+    for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });
+  });
+}
+refresh();
+setInterval(refresh, 60 * 1000);
 </script>
