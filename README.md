@@ -40,6 +40,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - more than a day without a snapshot is a break in the line, not 0 %
 - a page older than 30 minutes greys out and shows its age
+- a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
 
 Reload for fresh numbers.
@@ -53,6 +54,8 @@ Shows the 5-hour limit as a pie, from the newest snapshot of any account; a clic
 - Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
 - a data file is a list of `S.push({...});` lines, and `sources.js` lists the files -> a page opened from disk may load a script, but not fetch or list files
 - the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
+- in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, project and model into `<user>-tokens.js`; a project is the folder a session started in, and a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts
+- the API price is computed on the page from the prices in `limits.js`; a model without a price is named under the table
 
 **That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
 

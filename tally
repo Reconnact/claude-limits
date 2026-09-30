@@ -1,0 +1,45 @@
+#!/bin/bash
+# Adds up the tokens in the Claude Code transcripts per hour, project and model into <user>-tokens.js.
+ME="$(id -un)"
+DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
+FILE="$DIR/$ME-tokens.js"
+PROJECTS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
+[ -d "$PROJECTS" ] && [ -d "$DIR" ] || exit 0
+
+OLD="$(cat "$FILE" 2>/dev/null)"
+TMP="$FILE.$$"
+grep -r -H --include='*.jsonl' '"usage"' "$PROJECTS" 2>/dev/null | jq -R -n -r --arg home "$HOME" --arg old "$OLD" '
+  def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
+  def key: "\(.hour)|\(.project)|\(.model)";
+  def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
+  def fields: ["input", "cache_write_5m", "cache_write_1h", "cache_read", "output"];
+
+  [inputs | index(":{") as $i | {file: .[:$i], j: (.[$i + 1:] | try fromjson catch null)}
+    | select(.j.message.usage and .j.message.id and .j.timestamp and .j.message.model != "<synthetic>")
+    | .j.message.usage as $u
+    | {
+        sub: (.file | test("/subagents/")),
+        session: (.file | sub("/subagents/.*$"; "") | sub("\\.jsonl$"; "")),
+        cwd: .j.cwd,
+        id: .j.message.id,
+        model: .j.message.model,
+        hour: (.j.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601 | . - . % 3600),
+        input: ($u.input_tokens // 0),
+        cache_write_5m: ($u.cache_creation.ephemeral_5m_input_tokens // $u.cache_creation_input_tokens // 0),
+        cache_write_1h: ($u.cache_creation.ephemeral_1h_input_tokens // 0),
+        cache_read: ($u.cache_read_input_tokens // 0),
+        output: ($u.output_tokens // 0)
+      }] as $lines
+  # a session belongs to the folder it started in: `cd` moves cwd, and a subagent starts wherever the session is
+  | (reduce ($lines | sort_by(.sub))[] as $l ({}; .[$l.session] //= $l.cwd)) as $project
+  # a message is logged once per content block, its usage repeated or still growing
+  | [$lines | group_by(.id)[] | . as $g | $g[0] + (fields | map(. as $f | {($f): ($g | map(.[$f]) | max)}) | add)] as $messages
+  | [$messages | map(.project = ($project[.session] | home)) | group_by(key)[]
+      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model} + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
+  # Claude Code deletes transcripts after 30 days, so a row never shrinks
+  | ($old | rows) + $new | group_by(key)
+  | map(. as $g | .[0] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
+  | sort_by(.hour, .project, .model)[]
+  | "T.push(\(tojson));"
+' > "$TMP" && [ -s "$TMP" ] && mv "$TMP" "$FILE"
+rm -f "$TMP"

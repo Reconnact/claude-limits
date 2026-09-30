@@ -212,3 +212,48 @@ test('until: time left in words', () => {
   assert.equal(Limits.until(T0 + 50 * H, T0), '2 d 2 h');
   assert.equal(Limits.until(T0 + 30, T0), '1 min');
 });
+
+function row(hour, project, model, n = {}) {
+  return { hour, project, model, input: 0, cache_write_5m: 0, cache_write_1h: 0, cache_read: 0, output: 0, ...n };
+}
+
+test('cost: each kind of token at its own price, per million', () => {
+  const r = row(T0, '~/a', 'claude-opus-5-5', { input: 1e6, cache_write_5m: 1e6, cache_write_1h: 1e6, cache_read: 1e6, output: 1e6 });
+  assert.equal(Limits.cost(r), 4 + 5 + 8 + 0.2 + 20);
+});
+
+test('cost: a dated model id takes the price of its model', () => {
+  assert.equal(Limits.cost(row(T0, '~/a', 'claude-haiku-4-5-20251001', { output: 1e6 })), 5);
+});
+
+test('cost: an unknown model has no price', () => {
+  assert.equal(Limits.cost(row(T0, '~/a', 'claude-next-9', { output: 1e6 })), null);
+});
+
+test('projects: summed across models and accounts, dearest first', () => {
+  const T = [
+    row(T0, '~/a', 'claude-opus-5-5', { output: 1e6 }),
+    row(T0, '~/b', 'claude-fable-5-1', { output: 1e6 }),
+    row(T0 + H, '~/a', 'claude-sonnet-5', { output: 1e6 }),
+  ];
+  const { rows } = Limits.projects(T, T0, T0 + 2 * H);
+  assert.deepEqual(rows.map(r => [r.project, r.tokens, r.cost]), [['~/b', 1e6, 50], ['~/a', 2e6, 30]]);
+});
+
+test('projects: an hour counts when it overlaps the range', () => {
+  const T = [row(T0 - 2 * H, '~/old', 'claude-opus-5', { output: 1 }), row(T0 - H + 1, '~/edge', 'claude-opus-5', { output: 1 })];
+  assert.deepEqual(Limits.projects(T, T0, T0 + H).rows.map(r => r.project), ['~/edge']);
+});
+
+test('projects: unknown models are named, their tokens still counted', () => {
+  const { rows, unpriced } = Limits.projects([row(T0, '~/a', 'claude-next-9', { output: 5 })], T0, T0 + H);
+  assert.deepEqual([rows[0].tokens, rows[0].cost, unpriced], [5, 0, ['claude-next-9']]);
+});
+
+test('tokens: short units', () => {
+  assert.deepEqual([999, 1500, 2.5e6, 345.8e6, 1.44e9].map(Limits.tokens), ['999', '1.5 k', '2.5 M', '346 M', '1.4 B']);
+});
+
+test('dollars: two decimals, thousands separated', () => {
+  assert.deepEqual([0, 3.456, 12345.6].map(Limits.dollars), ['$0.00', '$3.46', '$12,345.60']);
+});

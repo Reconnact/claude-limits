@@ -49,6 +49,17 @@
   #days { position: relative; height: 1.5em; margin-top: .6em; font-size: .8rem; color: var(--text-3); }
   #days span { position: absolute; padding-left: .45em; border-left: 1px solid var(--edge); white-space: nowrap; }
 
+  .projects { margin-top: clamp(40px, 7vw, 80px); }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+  th, td { padding: .55em 0; border-bottom: 1px solid var(--rule); font-weight: 400; text-align: right; white-space: nowrap; }
+  th:first-child { text-align: left; overflow: hidden; text-overflow: ellipsis; }
+  th:not(:first-child), td { width: 7.5em; }
+  thead th { font-size: .85rem; font-weight: 500; color: var(--text-3); }
+  tbody th { color: var(--text-2); }
+  tfoot th, tfoot td { border-bottom: 0; font-weight: 500; }
+  #unpriced { margin: .6em 0 0; font-size: .85rem; color: var(--text-3); }
+  main.empty .projects { display: none; }
+
   @media (max-width: 560px) {
     .controls { flex-direction: column-reverse; align-items: stretch; }
     nav a { flex: 1; min-width: 0; padding: .6em 0; }
@@ -79,6 +90,10 @@
     </svg>
     <div id="days"></div>
   </figure>
+  <section class="projects">
+    <table id="projects" hidden><thead><tr><th>Project</th><th>Tokens</th><th>API price</th></tr></thead><tbody></tbody><tfoot></tfoot></table>
+    <p id="unpriced"></p>
+  </section>
 </main>
 <script src="limits.js"></script>
 <script>
@@ -93,18 +108,19 @@ for (const a of document.querySelectorAll('nav a')) {
   a.href = `?${params}`;
   if (a.dataset.days === DAYS) a.setAttribute('aria-current', 'page');
 }
-var S = [], SOURCES = [];
+var S = [], T = [], SOURCES = [];
 const load = (src, done) => {
   const el = document.createElement('script');
   el.src = src;
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS]);
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T);
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
-  let left = names.length;
+  const files = names.flatMap(name => [`${name}.js`, `${name}-tokens.js`]);
+  let left = files.length;
   if (!left) draw();
-  for (const name of names) load(`${DIR}/${name}.js`, () => { if (!--left) draw(); });
+  for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });
 });
 </script>

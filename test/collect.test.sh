@@ -18,6 +18,8 @@ check() {   # check <name> <expected> <actual>
 # no Keychain in the tests, so the background fetch-usage stops before the network
 mkdir -p "$TMP/bin"; printf '#!/bin/sh\nexit 44\n' > "$TMP/bin/security"; chmod +x "$TMP/bin/security"
 export PATH="$TMP/bin:$PATH"
+# and the background tally finds no transcripts
+export CLAUDE_CONFIG_DIR="$TMP/claude"
 
 input() {   # input <5h pct> <5h reset> <7d pct> <7d reset>
   printf '{"model":{"display_name":"x"},"rate_limits":{"five_hour":{"used_percentage":%s,"resets_at":%s},"seven_day":{"used_percentage":%s,"resets_at":%s}}}' "$1" "$2" "$3" "$4"

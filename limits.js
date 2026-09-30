@@ -4,6 +4,18 @@
   const DAY = 24 * 3600;
   const GAP = DAY;
   const KEYS = ['five_hour', 'seven_day', 'fable'];
+  // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h.
+  const PRICES = {
+    'claude-fable-5-1': [10, 50, 0.25],
+    'claude-fable-5': [10, 50, 1],
+    'claude-opus-5-5': [4, 20, 0.2],
+    'claude-opus-5': [5, 25, 0.5],
+    'claude-opus-4-8': [5, 25, 0.5],
+    'claude-opus-4-7': [5, 25, 0.5],
+    'claude-sonnet-5-5': [2, 10, 0.2],
+    'claude-sonnet-5': [2, 10, 0.2],
+    'claude-haiku-4-5': [1, 5, 0.1],
+  };
 
   // One point per rise: both accounts report the same number, and an idle session repeats an old one.
   function points(S, key) {
@@ -80,7 +92,52 @@
     return parts.filter(([n], i) => n || !i).map(([n, unit]) => `${n} ${unit}`).join(' ');
   }
 
-  function render(doc, S, now, days) {
+  function cost(r) {
+    const p = PRICES[r.model.replace(/-\d{8}$/, '')];
+    if (!p) return null;
+    const [input, output, read] = p;
+    return (r.input * input + r.cache_write_5m * input * 1.25 + r.cache_write_1h * input * 2 + r.cache_read * read + r.output * output) / 1e6;
+  }
+
+  // Rows are hours, so an hour that overlaps the range counts whole.
+  function projects(T, from, to) {
+    const by = {}, unpriced = new Set();
+    for (const r of T.filter(r => r.hour + 3600 > from && r.hour <= to)) {
+      const p = by[r.project] ||= { project: r.project, tokens: 0, cost: 0 };
+      p.tokens += r.input + r.cache_write_5m + r.cache_write_1h + r.cache_read + r.output;
+      const c = cost(r);
+      if (c === null) unpriced.add(r.model);
+      else p.cost += c;
+    }
+    return { rows: Object.values(by).sort((a, b) => b.cost - a.cost || b.tokens - a.tokens), unpriced: [...unpriced].sort() };
+  }
+
+  function tokens(n) {
+    for (const [div, unit] of [[1e9, 'B'], [1e6, 'M'], [1e3, 'k']]) {
+      if (n >= div) return `${(n / div).toFixed(n >= div * 100 ? 0 : 1)} ${unit}`;
+    }
+    return String(n);
+  }
+
+  function dollars(n) {
+    return `$${n.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function renderProjects(doc, T, from, now) {
+    const { rows, unpriced } = projects(T, from, now);
+    const cells = (...values) => {
+      const tr = doc.createElement('tr');
+      values.forEach((v, i) => { const td = doc.createElement(i ? 'td' : 'th'); td.textContent = v; tr.append(td); });
+      return tr;
+    };
+    doc.querySelector('#projects tbody').replaceChildren(...rows.map(r => cells(r.project, tokens(r.tokens), dollars(r.cost))));
+    const sum = k => rows.reduce((t, r) => t + r[k], 0);
+    doc.querySelector('#projects tfoot').replaceChildren(cells('Total', tokens(sum('tokens')), dollars(sum('cost'))));
+    doc.getElementById('projects').hidden = !rows.length;
+    doc.getElementById('unpriced').textContent = unpriced.length ? `No price for ${unpriced.join(', ')}` : '';
+  }
+
+  function render(doc, S, now, days, T = []) {
     const main = doc.querySelector('main');
     const c = current(S, now);
     if (!c) {
@@ -99,6 +156,7 @@
     }
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
+    renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now);
     for (const key of KEYS) {
       const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
@@ -131,6 +189,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, segments, path, until, render };
+  root.Limits = { points, current, segments, path, until, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

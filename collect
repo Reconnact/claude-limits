@@ -45,9 +45,9 @@ if [ -f "$FILE" ] && ! grep -qx "SOURCES.push(\"$ME\");" "$DIR/sources.js" 2>/de
   chmod 666 "$DIR/sources.js" 2>/dev/null
 fi
 
-# the status line input has no Fable limit -> fetch-usage reads it, at most every 5 min
+# at most every 5 min: fetch-usage reads the Fable limit the status line input lacks, tally the tokens
 STAMP="$DIR/.$ME-fetched"
 if [ -d "$DIR" ] && [ -z "$(find "$STAMP" -mmin -5 2>/dev/null)" ]; then
   touch "$STAMP"
-  "$(dirname "$0")/fetch-usage" </dev/null >/dev/null 2>&1 &
+  { "$(dirname "$0")/fetch-usage"; "$(dirname "$0")/tally"; } </dev/null >/dev/null 2>&1 &
 fi
