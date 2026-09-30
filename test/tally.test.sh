@@ -122,6 +122,12 @@ check "an old cache, a row shared with a moved session loses its tokens" "7" "$(
 check "an old cache, the moved session gets its row back" "5" "$(rows 'select(.project == "~/Workspace/d") | .output')"
 check "an old cache, a deleted transcript's tokens in a recounted hour go" "3" "$(rows 'select(.project == "~/Workspace/f") | .output')"
 
+# macOS caps a command's arguments at 1 MiB, so the old table must come from its file, not from an argument
+awk 'BEGIN { for (i = 0; i < 8000; i++) printf "T.push({\"hour\":%d,\"project\":\"~/Workspace/big\",\"model\":\"claude-opus-5-5\",\"input\":1,\"cache_write_5m\":0,\"cache_write_1h\":0,\"cache_read\":0,\"output\":1});\n", 1700000000 + i * 3600 }' >> "$OUT"
+msg big "$HOME/Workspace/a" 2026-09-30T14:00:00.000Z claude-opus-5-5 6 >> "$TMP/claude/projects/p/s1.jsonl"
+./tally
+check "a table past 1 MiB still takes a new row" "6" "$(rows 'select(.hour == 1790776800 and .project == "~/Workspace/a") | .output')"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally

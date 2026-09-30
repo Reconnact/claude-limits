@@ -55,8 +55,9 @@ jq -n -c --rawfile all "$TMP.all" --rawfile changed "$TMP.changed" '
   | inputs | select($keep[.file])
 ' "$CACHE" | cat - "$TMP.new" > "$TMP.cache" && mv "$TMP.cache" "$CACHE" || exit 1
 
-OLD="$(cat "$FILE" 2>/dev/null)"
-jq -n -r --arg home "$HOME" --arg old "$OLD" --argjson rebuild "$REBUILD" '
+# from its file: past 1 MiB the table no longer fits into an argument, and the exec fails without a word
+OLD="$FILE"; [ -f "$OLD" ] || { : > "$TMP.old"; OLD="$TMP.old"; }
+jq -n -r --arg home "$HOME" --rawfile old "$OLD" --argjson rebuild "$REBUILD" '
   def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
   def key: "\(.hour)|\(.project)|\(.model)|\(.speed)";
   def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
