@@ -350,6 +350,14 @@ final class Bar: NSObject {
         store.changed = { [weak self] in self?.refresh(); self?.applySettings() }
         refresh()
         applySettings()
+        // ⌘Tab and the Dock list the app only while one of its windows is open
+        for window in [pageWindow, settingsWindow] {
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                let other = window === pageWindow ? settingsWindow : pageWindow
+                if !other.isVisible && !other.isMiniaturized { NSApp.setActivationPolicy(.accessory) }
+            }
+        }
         // the settings file is tiny, so reading it every second is cheaper than watching both the file and its folder
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -458,6 +466,7 @@ final class Bar: NSObject {
             pageWindow.setContentSize(NSSize(width: 900, height: 700))
             pageWindow.center()
         }
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         pageWindow.makeKeyAndOrderFront(nil)
     }
@@ -465,6 +474,7 @@ final class Bar: NSObject {
     @objc func openSettings() {
         popover.performClose(nil)
         if !settingsWindow.isVisible { settingsWindow.center() }
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow.makeKeyAndOrderFront(nil)
     }
