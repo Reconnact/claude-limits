@@ -226,6 +226,10 @@ test('cost: a dated model id takes the price of its model', () => {
   assert.equal(Limits.cost(row(T0, '~/a', 'claude-haiku-4-5-20251001', { output: 1e6 })), 5);
 });
 
+test('cost: fast mode doubles the price', () => {
+  assert.equal(Limits.cost(row(T0, '~/a', 'claude-opus-5-5', { speed: 'fast', output: 1e6, cache_read: 1e6 })), 40.4);
+});
+
 test('cost: an unknown model has no price', () => {
   assert.equal(Limits.cost(row(T0, '~/a', 'claude-next-9', { output: 1e6 })), null);
 });

@@ -46,11 +46,17 @@ check "a subagent counts to its session's project" '"~/Workspace/a"' "$(rows 'se
 check "outside home stays as is" '"/tmp/elsewhere"' "$(rows 'select(.model == "claude-fable-5-1") | .project')"
 check "synthetic messages are left out" "0" "$(rows 'select(.model == "<synthetic>")' | wc -l | tr -d ' ')"
 
+# a fast request gets its own row, a standard one none
+sed 's/"output_tokens":9,/"output_tokens":9,"speed":"fast",/' "$TMP/claude/projects/p/s2.jsonl" > "$TMP/fast" && cat "$TMP/fast" > "$TMP/claude/projects/p/s2.jsonl"
+msg m8 /tmp/elsewhere 2026-09-30T10:40:00.000Z claude-fable-5-1 4 >> "$TMP/claude/projects/p/s2.jsonl"
+rm "$OUT"; ./tally
+check "fast and standard apart" '9 fast|4 -' "$(rows 'select(.model == "claude-fable-5-1") | "\(.output) \(.speed // "-")"' | tr -d '"' | sort -r | paste -sd '|' -)"
+
 # a deleted transcript keeps its rows, a longer one grows them
 rm "$TMP/claude/projects/p/s2.jsonl"
 msg m7 "$HOME/Workspace/a" 2026-09-30T11:30:00.000Z claude-opus-5-5 10 >> "$TMP/claude/projects/p/s1.jsonl"
 ./tally
-check "deleted transcript, row stays" "9" "$(rows 'select(.model == "claude-fable-5-1") | .output')"
+check "deleted transcript, rows stay" "13" "$(rows 'select(.model == "claude-fable-5-1") | .output' | paste -sd+ - | bc)"
 check "new message adds to its hour" "13" "$(rows 'select(.model == "claude-opus-5-5" and .hour == 1790766000) | .output')"
 
 # no transcripts at all writes nothing

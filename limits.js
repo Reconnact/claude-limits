@@ -5,7 +5,7 @@
   const GAP = DAY;
   const KEYS = ['five_hour', 'seven_day', 'fable'];
   const LENGTH = { five_hour: 5 * 3600, seven_day: 7 * DAY, fable: 7 * DAY };
-  // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h.
+  // $ per million tokens: input, output, cache read. A cache write costs 1.25× input for 5 min, 2× for 1 h; fast mode doubles all of it.
   const PRICES = {
     'claude-fable-5-1': [10, 50, 0.25],
     'claude-fable-5': [10, 50, 1],
@@ -114,7 +114,7 @@
     const p = PRICES[r.model.replace(/-\d{8}$/, '')];
     if (!p) return null;
     const [input, output, read] = p;
-    return (r.input * input + r.cache_write_5m * input * 1.25 + r.cache_write_1h * input * 2 + r.cache_read * read + r.output * output) / 1e6;
+    return (r.speed === 'fast' ? 2 : 1) * (r.input * input + r.cache_write_5m * input * 1.25 + r.cache_write_1h * input * 2 + r.cache_read * read + r.output * output) / 1e6;
   }
 
   // Rows are hours, so an hour that overlaps the range counts whole.
@@ -181,6 +181,8 @@
     }
 
     const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
+    // over weeks the 5 h line is noise under the weekly frames
+    if (framed === 'seven_day') doc.getElementById('line-five_hour').setAttribute('d', '');
     const frames = doc.getElementById('frames');
     const x = t => Math.round((t - from) / (now - from) * 7000) / 10;
     const el = (name, attrs) => {

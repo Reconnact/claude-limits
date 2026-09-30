@@ -10,7 +10,7 @@ OLD="$(cat "$FILE" 2>/dev/null)"
 TMP="$FILE.$$"
 grep -r -H --include='*.jsonl' '"usage"' "$PROJECTS" 2>/dev/null | jq -R -n -r --arg home "$HOME" --arg old "$OLD" '
   def rows: split("\n") | map(select(startswith("T.push(")) | ltrimstr("T.push(") | rtrimstr(");") | fromjson);
-  def key: "\(.hour)|\(.project)|\(.model)";
+  def key: "\(.hour)|\(.project)|\(.model)|\(.speed)";
   def home: if . == null then "?" elif startswith($home) then "~" + .[($home | length):] else . end;
   def fields: ["input", "cache_write_5m", "cache_write_1h", "cache_read", "output"];
 
@@ -23,6 +23,7 @@ grep -r -H --include='*.jsonl' '"usage"' "$PROJECTS" 2>/dev/null | jq -R -n -r -
         cwd: .j.cwd,
         id: .j.message.id,
         model: .j.message.model,
+        speed: (if $u.speed == "fast" then "fast" else null end),
         hour: (.j.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601 | . - . % 3600),
         input: ($u.input_tokens // 0),
         cache_write_5m: ($u.cache_creation.ephemeral_5m_input_tokens // $u.cache_creation_input_tokens // 0),
@@ -35,7 +36,7 @@ grep -r -H --include='*.jsonl' '"usage"' "$PROJECTS" 2>/dev/null | jq -R -n -r -
   # a message is logged once per content block, its usage repeated or still growing
   | [$lines | group_by(.id)[] | . as $g | $g[0] + (fields | map(. as $f | {($f): ($g | map(.[$f]) | max)}) | add)] as $messages
   | [$messages | map(.project = ($project[.session] | home)) | group_by(key)[]
-      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model} + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
+      | . as $g | {hour: .[0].hour, project: .[0].project, model: .[0].model} + (if .[0].speed then {speed: .[0].speed} else {} end) + (fields | map(. as $f | {($f): ($g | map(.[$f]) | add)}) | add)] as $new
   # Claude Code deletes transcripts after 30 days, so a row never shrinks
   | ($old | rows) + $new | group_by(key)
   | map(. as $g | .[0] + (fields | map(. as $f | {($f): ($g | map(.[$f] // 0) | max)}) | add))
