@@ -40,7 +40,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in; beyond 7 days the 5 h line is left out
-- a page older than 30 minutes greys out and shows its age
+- "as of" is the last check, which is every Claude Code turn; after 30 minutes without one the page greys out and shows its age
 - a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
@@ -100,6 +100,7 @@ Then, once a day, the next Claude Code turn pulls the newest version from the cl
 ## How it works
 
 - Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
+- every check also overwrites `<user>-checked.js` with its time, a snapshot without values, so "as of" moves when the numbers do not
 - a data file is a list of `S.push({...});` lines, and `sources.js` lists the files -> a page opened from disk may load a script, but not fetch or list files
 - the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
 - in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, project and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a project is the folder a session started in, and a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts

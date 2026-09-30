@@ -83,6 +83,15 @@ test('current: older than 30 min is stale', () => {
   assert.equal(Limits.current(S, T0 + 1801).stale, true);
 });
 
+test('current: a check without values moves "as of", not the values', () => {
+  const S = [snap(T0, 'reconnact', [80, T0 + 5 * H], null), { ts: T0 + 1700, source: 'hw' }];
+  const c = Limits.current(S, T0 + 1801);
+  assert.equal(c.five_hour.pct, 80);
+  assert.equal(c.ts, T0 + 1700);
+  assert.equal(c.source, 'hw');
+  assert.equal(c.stale, false);
+});
+
 test('current: no snapshots', () => {
   assert.equal(Limits.current([], T0), null);
 });

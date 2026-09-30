@@ -64,6 +64,10 @@ check "menu has every limit" "5 h 24 %|7 d 69 %|Fable 76 %" "$(menu)"
 line $((NOW - 3 * 3600)) 40 $((NOW + 3600)) > "$TMP/hw.js"
 check "menu shows the age of an old snapshot" "5 h 40 %|7 d 69 %|last snapshot 3 h ago" "$(menu)"
 
+printf 'S.push({"ts":%s,"source":"hw"});\n' $((NOW - 60)) > "$TMP/hw-checked.js"
+check "a recent check hides the age, keeps the values" "5 h 40 %|7 d 69 %" "$(menu)"
+rm "$TMP/hw-checked.js"
+
 settings() { printf '%s' "$1" > "$CLAUDE_LIMITS_SETTINGS"; }
 title() { ./menubar/claude-limits-bar --title; }
 reset_text() { ./menubar/claude-limits-bar --menu | head -1 | cut -f3; }

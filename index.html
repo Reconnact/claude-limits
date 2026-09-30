@@ -123,7 +123,7 @@ const load = (src, done) => {
 const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined);
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
-  const files = names.flatMap(name => [`${name}.js`, `${name}-tokens.js`]);
+  const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
   let left = files.length;
   if (!left) draw();
   for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });

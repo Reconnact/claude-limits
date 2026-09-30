@@ -56,6 +56,15 @@ check "folder is 1777" "drwxrwxrwt" "$(stat -f '%Sp' "$D")"
 input 23.4 1790000000 41.2 1790400000 | run "$D" >/dev/null
 check "same snapshot twice stays one line" "1" "$(lines "$D")"
 
+# every check, news or not, overwrites the checked file with a snapshot without values
+CHECKED="$D/$(id -un)-checked.js"
+printf 'S.push({"ts":1,"source":"old"});\n' > "$CHECKED"
+input 23.4 1790000000 41.2 1790400000 | run "$D" >/dev/null
+check "a check that is no news still writes nothing" "1" "$(lines "$D")"
+check "check is one line" "1" "$(wc -l < "$CHECKED" | tr -d ' ')"
+check "check carries the source and no values" "$(id -un) null" "$(sed 's/^S.push(//; s/);$//' "$CHECKED" | jq -r '"\(.source) \(.five_hour)"')"
+check "check carries a timestamp" "number" "$(sed 's/^S.push(//; s/);$//' "$CHECKED" | jq -r '.ts | type')"
+
 # a lower percentage in the same window comes from an idle session
 OUT="$(input 20 1790000000 40 1790400000 | run "$D")"
 check "lower percentage writes nothing" "1" "$(lines "$D")"
@@ -95,6 +104,8 @@ D="$TMP/broken"
 mkdir -p "$D"; printf 'S.push({"ts":17\n' > "$D/$(id -un).js"
 input 23.4 1790000000 41.2 1790400000 | run "$D" >/dev/null
 check "broken last line, next snapshot appends" "2" "$(lines "$D")"
+
+check "no limits, no check" "no" "$([ -f "$TMP/none/$(id -un)-checked.js" ] && echo yes || echo no)"
 
 # input that is no JSON
 D="$TMP/garbage"

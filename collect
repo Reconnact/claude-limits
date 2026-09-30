@@ -33,9 +33,11 @@ LASTF="${LASTF%);}"
     "\(.five_hour | shown)\t\(.seven_day | shown)"
 ' 2>/dev/null)
 
-if [ -n "$LINE" ]; then
+if [ -n "$SHOWN" ]; then
   [ -d "$DIR" ] || { mkdir -p "$DIR" && chmod 1777 "$DIR"; }
-  printf '%s\n' "$LINE" >> "$FILE"
+  [ -n "$LINE" ] && printf '%s\n' "$LINE" >> "$FILE"
+  # a snapshot without values, overwritten on every check: "as of" is the last check, not the last rise
+  printf 'S.push({"ts":%s,"source":"%s"});\n' "$(date +%s)" "$ME" > "$DIR/$ME-checked.js"
 fi
 printf '%s' "$SHOWN"
 
