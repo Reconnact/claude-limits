@@ -52,22 +52,30 @@ Shows the 5-hour limit as a pie, from the newest snapshot of any account. A clic
 
 ## Updates
 
-Once a day, the next Claude Code turn pulls the newest version of your clone from its `origin` in the background, and rebuilds the menu bar item when its code changed. So whatever lands on `main` there runs on your Mac without you reviewing it first. A clone with changes of its own is left alone.
-
-To update by hand instead:
+To get the newest version:
 
 ```sh
-touch ~/Workspace/claude-limits/.no-update
+git -C ~/claude-limits pull
 ```
+
+and `make -C ~/claude-limits install-menubar` when the menu bar item changed.
+
+To let the clone update itself instead:
+
+```sh
+touch ~/claude-limits/.auto-update
+```
+
+Then, once a day, the next Claude Code turn pulls the newest version from the clone's `origin` in the background and rebuilds the menu bar item when its code changed. Whatever lands on `main` there runs on your Mac without you reviewing it first, with access to your Claude token. A clone with changes of its own is left alone.
 
 ## How it works
 
 - Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
 - a data file is a list of `S.push({...});` lines, and `sources.js` lists the files -> a page opened from disk may load a script, but not fetch or list files
 - the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
-- in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, project and model into `<user>-tokens.js`; a project is the folder a session started in, and a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts
+- in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, project and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a project is the folder a session started in, and a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts
 - the API price is computed on the page from the prices in `limits.js`, fast mode at double; a model without a price is named under the table
-- once a day `collect` starts `update` in the background: it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed
+- once a day `collect` starts `update` in the background: with `.auto-update` in the clone, it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed
 
 **That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
 

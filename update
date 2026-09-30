@@ -1,7 +1,7 @@
 #!/bin/bash
-# Pulls the newest version unless the clone has changes of its own; rebuilds the menu bar item when its code changed.
+# Pulls the newest version when the clone has opted in with .auto-update and has no changes of its own; rebuilds the menu bar item when its code changed.
 cd "$(dirname "$0")" || exit 1
-[ -e .no-update ] && exit 0
+[ -e .auto-update ] || exit 0
 [ -z "$(git status --porcelain)" ] || exit 0
 BEFORE="$(git rev-parse HEAD)" || exit 0
 git pull -q --ff-only || exit 0

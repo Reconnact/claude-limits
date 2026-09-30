@@ -31,6 +31,11 @@ commit() { echo "$2" > "$TMP/origin/$1" && git -C "$TMP/origin" commit -q -am "$
 
 commit README.md b
 "$TMP/clone/update"
+check "not opted in, no pull" "a" "$(cat "$TMP/clone/README.md")"
+
+echo .auto-update >> "$TMP/clone/.git/info/exclude"
+touch "$TMP/clone/.auto-update"
+"$TMP/clone/update"
 check "pulls a new commit" "b" "$(cat "$TMP/clone/README.md")"
 check "no menu bar change, no rebuild" "no" "$([ -f "$TMP/make-calls" ] && echo yes || echo no)"
 
@@ -43,14 +48,6 @@ printf '#!/bin/sh\nexit 113\n' > "$TMP/bin/launchctl"
 commit menubar/x.swift c
 "$TMP/clone/update"
 check "menu bar not installed, not built" "no" "$([ -f "$TMP/make-calls" ] && echo yes || echo no)"
-
-echo .no-update >> "$TMP/clone/.git/info/exclude"
-touch "$TMP/clone/.no-update"
-commit README.md opted-out
-"$TMP/clone/update"
-check "opted out, no pull" "b" "$(cat "$TMP/clone/README.md")"
-rm "$TMP/clone/.no-update"
-"$TMP/clone/update"
 
 echo mine > "$TMP/clone/README.md"
 commit README.md d
