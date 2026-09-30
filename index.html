@@ -128,7 +128,7 @@ const load = (src, done) => {
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined);
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, PARAMS.get('line') || undefined);
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
   const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);

@@ -21,6 +21,7 @@ struct Settings: Codable, Equatable {
     var menuBarIcon = "pie"
     var menuBarText = "none"
     var resetFormat = "time"
+    var chartLine = "steps"
     var panelLimits = limits.map(\.id)
     var warnAt = 80
     var refreshSeconds = 60
@@ -40,6 +41,7 @@ struct Settings: Codable, Equatable {
         menuBarIcon = pick(.menuBarIcon, ["pie", "bar", "none"]) ?? menuBarIcon
         menuBarText = pick(.menuBarText, ["none", "percent", "reset", "both"]) ?? menuBarText
         resetFormat = pick(.resetFormat, ["time", "countdown", "both"]) ?? resetFormat
+        chartLine = pick(.chartLine, ["steps", "smooth"]) ?? chartLine
         if let ids = try? c.decode([String].self, forKey: .panelLimits) { panelLimits = ids.filter { limits.map(\.id).contains($0) } }
         if let n = try? c.decode(Int.self, forKey: .warnAt), (0...100).contains(n) { warnAt = n }
         if let n = try? c.decode(Int.self, forKey: .refreshSeconds), n >= 10 { refreshSeconds = n }
@@ -275,6 +277,13 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            Section("Page") {
+                Picker("Chart line", selection: $store.settings.chartLine) {
+                    Text("Steps").tag("steps")
+                    Text("Smooth").tag("smooth")
+                }
+                .pickerStyle(.segmented)
+            }
             Section("Panel") {
                 ForEach(limits, id: \.id) { Toggle($0.name, isOn: panelRow($0.id)) }
             }
@@ -405,8 +414,8 @@ final class Bar: NSObject {
     // the page loads the data files from /Users/Shared as scripts, outside the repo
     @objc func open() {
         popover.performClose(nil)
-        // the page cannot read ~/.config, so the reset format comes along as ?reset=
-        let url = URL(string: "?reset=\(store.settings.resetFormat)", relativeTo: page)!.absoluteURL
+        // the page cannot read ~/.config, so the settings come along as ?reset= and ?line=
+        let url = URL(string: "?reset=\(store.settings.resetFormat)&line=\(store.settings.chartLine)", relativeTo: page)!.absoluteURL
         // the reused web view would serve the data scripts from its memory cache, even after they changed
         WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeMemoryCache], modifiedSince: .distantPast) {
             (self.pageWindow.contentView as? WKWebView)?.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))

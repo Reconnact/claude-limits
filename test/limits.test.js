@@ -208,6 +208,11 @@ test('path: a step line scaled to the box', () => {
   assert.equal(Limits.path(line, 0, 100, 200, 100), 'M0 50H100V0H200V0');
 });
 
+test('path: a smooth line goes straight from point to point', () => {
+  const line = [{ t: 0, pct: 50 }, { t: 50, pct: 100 }, { t: 100, pct: 100 }];
+  assert.equal(Limits.path(line, 0, 100, 200, 100, false), 'M0 50L100 0L200 0');
+});
+
 test('path: no points, no path', () => {
   assert.equal(Limits.path([], 0, 100, 200, 100), '');
 });

@@ -164,7 +164,8 @@
     doc.getElementById('unpriced').textContent = unpriced.length ? `No price for ${unpriced.join(', ')}` : '';
   }
 
-  function render(doc, S, now, days, T = [], resetFormat) {
+  function render(doc, S, now, days, T = [], resetFormat, line = 'steps') {
+    const stepped = line !== 'smooth';
     const main = doc.querySelector('main');
     const c = current(S, now);
     if (!c) {
@@ -185,7 +186,7 @@
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now);
     for (const key of KEYS) {
-      const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
+      const d = segments(S, key, from, now).map(l => path(l, from, now, 700, 160, stepped)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
     }
 
@@ -204,7 +205,7 @@
     };
     frames.setAttribute('class', framed);
     frames.replaceChildren(...windows(S, framed, from, now).flatMap(w => [
-      ...w.fill.map(line => el('path', { class: 'fill', d: `${path(line, from, now, 700, 160)}V160H${x(line[0].t)}Z` })),
+      ...w.fill.map(l => el('path', { class: 'fill', d: `${path(l, from, now, 700, 160, stepped)}V160H${x(l[0].t)}Z` })),
       el('rect', { class: 'frame', x: x(Math.max(w.start, from)), y: 160 - Math.min(w.peak, 100) * 1.6, width: x(Math.min(w.end, now)) - x(Math.max(w.start, from)), height: Math.min(w.peak, 100) * 1.6 }),
     ]));
 

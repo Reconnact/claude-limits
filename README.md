@@ -74,6 +74,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - a table under the chart lists the tokens and their API price per project for the chosen range, both accounts added up
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
+- `?line=smooth` draws the chart as straight lines from snapshot to snapshot instead of steps; `Open page` passes the setting
 
 The page reloads itself every minute.
 
@@ -91,6 +92,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
   "menuBarIcon": "pie",
   "menuBarText": "none",
   "resetFormat": "time",
+  "chartLine": "steps",
   "panelLimits": ["five_hour", "seven_day", "fable"],
   "warnAt": 80,
   "refreshSeconds": 60
@@ -103,6 +105,7 @@ The gear in the panel opens a window for them; they live in `~/.config/claude-li
 | `menuBarIcon` | `pie`, `bar`, `none` | `pie` | the icon |
 | `menuBarText` | `none`, `percent`, `reset`, `both` | `none` | text after the icon, e.g. `23% · in 2 h 13 min` |
 | `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel, the menu bar and the page from `Open page` |
+| `chartLine` | `steps`, `smooth` | `steps` | the chart on the page from `Open page`: a step at each snapshot, or a straight line from one to the next |
 | `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
 | `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
 | `refreshSeconds` | `10` and up | `60` | how often the data files are read |
