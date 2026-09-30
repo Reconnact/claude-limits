@@ -95,9 +95,9 @@ func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_a
     return ws.max { $0.pct < $1.pct }
 }
 
-// as pace() on the page: the rise over the last hour of the current window, from the value held then or from 0 % at its start,
+// as pace() on the page: the rise over the last hour of the current window in % per hour, from the value held then or from 0 % at its start,
 // and when it fills the window if that comes before the reset; none before the window is an hour old
-func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, length: Double, now: Double) -> String? {
+func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, length: Double, now: Double) -> (rate: Double, full: Double?)? {
     let ws = all.compactMap { s in s[keyPath: key].map { (t: s.ts, w: $0) } }
     guard let newest = ws.map(\.w.resets_at).max(), newest > now, now - (newest - length) >= 3600 else { return nil }
     let own = ws.filter { newest - $0.w.resets_at <= 60 }
@@ -105,8 +105,8 @@ func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, length: Double, 
     let before = own.filter { $0.t <= now - 3600 }
     let base = before.isEmpty ? (t: newest - length, pct: 0.0) : (t: before.map(\.t).max()!, pct: before.map(\.w.used_percentage).max()!)
     let rate = (pct - base.pct) / (now - base.t) * 3600
-    guard rate > 0, case let full = now + (100 - pct) / rate * 3600, full < newest else { return nil }
-    return "at this pace full \(when(full, "time", now: now)) · \(String(format: "%.1f", rate)) %/h"
+    let full = rate > 0 ? now + (100 - pct) / rate * 3600 : nil
+    return (rate, full.flatMap { $0 < newest ? $0 : nil })
 }
 
 func title(_ pct: Int?) -> String { pct.map { "\($0)%" } ?? "–" }
@@ -150,7 +150,9 @@ func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, elapsed:
     s.panelLimits.compactMap { id in
         guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
         let elapsed = w.resets_at.map { min(1, max(0, (now - ($0 - l.length)) / l.length)) }
-        return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", pace(all, l.key, length: l.length, now: now), l.color)
+        let p = pace(all, l.key, length: l.length, now: now)
+        let text = p.map { $0.full.map { "full \(when($0, "time", now: now))" } ?? "\(String(format: "%.1f", $0.rate)) %/h" }
+        return (w.pct, elapsed, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", text, l.color)
     }
 }
 
@@ -204,11 +206,57 @@ func meter(_ pct: Int, _ elapsed: Double?, _ color: NSColor) -> NSImage {
         let filled = NSRect(x: 0, y: 0, width: rect.width * CGFloat(min(pct, 100)) / 100, height: rect.height)
         NSBezierPath(roundedRect: filled, xRadius: 3, yRadius: 3).fill()
         if let elapsed {
+            NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).addClip()
             NSColor.labelColor.setFill()
             NSRect(x: min(rect.width - 1.5, rect.width * CGFloat(elapsed)), y: 0, width: 1.5, height: rect.height).fill()
         }
         return true
     }
+}
+
+// the panel's content; the buttons act on the bar, or on nothing when only rendered
+func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?) -> NSView {
+    var views: [NSView] = []
+    let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    let rows = rows(all, s, now: now)
+    // the pace column starts after the widest reset text, whatever the reset format
+    let reset = rows.map { ($0.text.components(separatedBy: "\t").last! as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+    let style = NSMutableParagraphStyle()
+    style.tabStops = [50, 100, 100 + reset + 16].map { NSTextTab(textAlignment: .left, location: $0) }
+    for row in rows {
+        let line = row.text + (row.pace.map { "\t" + $0 } ?? "")
+        let text = NSTextField(labelWithAttributedString: NSAttributedString(string: line, attributes: [.font: font, .paragraphStyle: style]))
+        text.maximumNumberOfLines = 1
+        text.setContentCompressionResistancePriority(.required, for: .horizontal)
+        views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.elapsed, row.color)), text]))
+    }
+    if let age = age(all, now: now) {
+        let label = NSTextField(labelWithString: age)
+        label.textColor = .secondaryLabelColor
+        views.append(label)
+    }
+    if views.isEmpty { views.append(NSTextField(labelWithString: "no data yet")) }
+    let open = NSButton(title: "Open page", image: NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)!,
+                        target: target, action: #selector(Bar.open))
+    open.keyEquivalent = "o"
+    open.keyEquivalentModifierMask = .command
+    let settings = NSButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")!,
+                            target: target, action: #selector(Bar.openSettings))
+    settings.keyEquivalent = ","
+    settings.keyEquivalentModifierMask = .command
+    let quit = NSButton(title: "", target: NSApp, action: #selector(NSApplication.terminate(_:)))
+    quit.isBordered = false
+    quit.attributedTitle = NSAttributedString(string: "Quit", attributes: [.foregroundColor: NSColor.systemRed])
+    quit.keyEquivalent = "q"
+    quit.keyEquivalentModifierMask = .command
+    let buttons = NSStackView(views: [open, settings, NSView(), quit])
+    views.append(buttons)
+    let stack = NSStackView(views: views)
+    stack.orientation = .vertical
+    stack.alignment = .leading
+    stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+    buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
+    return stack
 }
 
 let now = Date().timeIntervalSince1970
@@ -224,6 +272,19 @@ if CommandLine.arguments.contains("--menu") {
     let all = snapshots()
     rows(all, Settings.load(), now: now).forEach { print($0.text + ($0.pace.map { "\t" + $0 } ?? "")) }
     age(all, now: now).map { print($0) }
+    exit(0)
+}
+// the panel as a PNG, to look at it without a click; dark, as the popover in dark mode
+if let i = CommandLine.arguments.firstIndex(of: "--panel"), i + 1 < CommandLine.arguments.count {
+    let view = panelView(snapshots(), Settings.load(), now: now, target: nil)
+    view.appearance = NSAppearance(named: .darkAqua)
+    view.frame = NSRect(origin: .zero, size: view.fittingSize)
+    view.wantsLayer = true
+    view.layer?.backgroundColor = NSColor(white: 0.12, alpha: 1).cgColor
+    view.layoutSubtreeIfNeeded()
+    let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+    view.cacheDisplay(in: view.bounds, to: rep)
+    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: CommandLine.arguments[i + 1]))
     exit(0)
 }
 
@@ -422,49 +483,7 @@ final class Bar: NSObject {
     }
 
     func content() -> NSView {
-        let now = Date().timeIntervalSince1970
-        let all = snapshots()
-        var views: [NSView] = []
-        let style = NSMutableParagraphStyle()
-        style.tabStops = [NSTextTab(textAlignment: .left, location: 50), NSTextTab(textAlignment: .left, location: 100)]
-        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        for row in rows(all, store.settings, now: now) {
-            let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.text, attributes: [.font: font, .paragraphStyle: style]))
-            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.elapsed, row.color)), text]))
-            if let pace = row.pace {
-                let label = NSTextField(labelWithString: pace)
-                label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-                label.textColor = .secondaryLabelColor
-                views.append(label)
-            }
-        }
-        if let age = age(all, now: now) {
-            let label = NSTextField(labelWithString: age)
-            label.textColor = .secondaryLabelColor
-            views.append(label)
-        }
-        if views.isEmpty { views.append(NSTextField(labelWithString: "no data yet")) }
-        let open = NSButton(title: "Open page", image: NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: nil)!,
-                            target: self, action: #selector(open))
-        open.keyEquivalent = "o"
-        open.keyEquivalentModifierMask = .command
-        let settings = NSButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")!,
-                                target: self, action: #selector(openSettings))
-        settings.keyEquivalent = ","
-        settings.keyEquivalentModifierMask = .command
-        let quit = NSButton(title: "", target: NSApp, action: #selector(NSApplication.terminate(_:)))
-        quit.isBordered = false
-        quit.attributedTitle = NSAttributedString(string: "Quit", attributes: [.foregroundColor: NSColor.systemRed])
-        quit.keyEquivalent = "q"
-        quit.keyEquivalentModifierMask = .command
-        let buttons = NSStackView(views: [open, settings, NSView(), quit])
-        views.append(buttons)
-        let stack = NSStackView(views: views)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
-        buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
-        return stack
+        panelView(snapshots(), store.settings, now: Date().timeIntervalSince1970, target: self)
     }
 
     // unfocused the panel is see-through; activating the app to focus it also raises the page window
