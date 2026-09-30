@@ -59,6 +59,26 @@ msg m7 "$HOME/Workspace/a" 2026-09-30T11:30:00.000Z claude-opus-5-5 10 >> "$TMP/
 check "deleted transcript, rows stay" "13" "$(rows 'select(.model == "claude-fable-5-1") | .output' | paste -sd+ - | bc)"
 check "new message adds to its hour" "13" "$(rows 'select(.model == "claude-opus-5-5" and .hour == 1790766000) | .output')"
 
+# a resumed session copies earlier messages into its own transcript
+msg m1 "$HOME/Workspace/a" 2026-09-30T10:00:02.000Z claude-opus-5-5 50 > "$TMP/claude/projects/p/s3.jsonl"
+./tally
+check "a copied message counts once" "57" "$(rows 'select(.model == "claude-opus-5-5" and .hour == 1790762400) | .output')"
+
+# a run reads only the transcripts changed since the last one
+cp "$OUT" "$TMP/before"
+msg m9 "$HOME/Workspace/a" 2026-09-30T12:00:00.000Z claude-opus-5-5 99 >> "$TMP/claude/projects/p/s1.jsonl"
+touch -t 202001010000 "$TMP/claude/projects/p/s1.jsonl"
+./tally
+check "unchanged transcript, not read" "same" "$(cmp -s "$TMP/before" "$OUT" && echo same || echo differs)"
+touch "$TMP/claude/projects/p/s1.jsonl"
+./tally
+check "changed transcript, read" "99" "$(rows 'select(.hour == 1790769600) | .output')"
+
+cp "$OUT" "$TMP/incremental"
+rm "$TMP/out/.$(id -un)-tally.jsonl"
+./tally
+check "incremental equals a full run" "same" "$(cmp -s "$TMP/incremental" "$OUT" && echo same || echo differs)"
+
 # no transcripts at all writes nothing
 rm -rf "$TMP/claude/projects" "$OUT"
 ./tally
