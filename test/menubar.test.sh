@@ -45,4 +45,16 @@ line $((NOW - 60)) 33 $((NOW + 3600)) > "$TMP/someone.js"
 printf 'SOURCES.push("someone");\n' > "$TMP/sources.js"
 check "any account name, index ignored" "33%" "$(bar)"
 
+menu() { ./menubar/claude-limits-bar --menu | cut -f1,2 | tr '\t' ' ' | paste -sd '|' -; }
+
+rm "$TMP"/*.js
+check "menu without data" "" "$(menu)"
+
+line $((NOW - 60)) 24 $((NOW + 3600)) > "$TMP/hw.js"
+printf 'S.push({"ts":%s,"source":"hw","fable":{"used_percentage":76,"resets_at":%s}});\n' "$NOW" $((NOW + 3600)) >> "$TMP/hw.js"
+check "menu has every limit" "5 h 24 %|7 d 69 %|Fable 76 %" "$(menu)"
+
+line $((NOW - 3 * 3600)) 40 $((NOW + 3600)) > "$TMP/hw.js"
+check "menu shows the age of an old snapshot" "5 h 40 %|7 d 69 %|last snapshot 3 h ago" "$(menu)"
+
 exit $FAILED

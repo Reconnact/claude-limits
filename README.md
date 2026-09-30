@@ -48,7 +48,7 @@ Reload for fresh numbers.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account; a click opens the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a menu with each limit, its bar and its reset time, and a link to the page. It re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ## Updates
 
