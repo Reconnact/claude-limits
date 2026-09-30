@@ -161,7 +161,7 @@
       const el = doc.getElementById(key), w = c[key];
       el.querySelector('.pct').textContent = w ? `${Math.round(w.pct)} %` : '–';
       el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset'
-        : resets(w.resets_at, now, resetFormat).split(' · ').map(p => p.replace(/ /g, '\u00a0')).join(' · ');
+        : resets(w.resets_at, now, resetFormat).replace(/(\d) /g, '$1\u00a0');
       el.querySelector('.bar i').style.width = `${w ? Math.min(w.pct, 100) : 0}%`;
     }
 
