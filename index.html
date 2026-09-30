@@ -46,6 +46,10 @@
   #line-five_hour { stroke: var(--five_hour); }
   #line-seven_day { stroke: var(--seven_day); }
   #line-fable { stroke: var(--fable); }
+  #ramp-five_hour { stroke: var(--five_hour); }
+  #ramp-seven_day { stroke: var(--seven_day); }
+  #ramp-fable { stroke: var(--fable); }
+  .ramp { stroke-dasharray: 3 4; }
   .axis { position: absolute; left: 0; margin: 0; font-size: .75rem; line-height: 1; color: var(--text-3); transform: translateY(calc(-100% - 5px)); }
   .axis.top { top: 0; }
   .axis.mid { top: calc(clamp(220px, 44vh, 480px) / 2); }
@@ -93,6 +97,9 @@
       <path id="line-five_hour"/>
       <path id="line-seven_day"/>
       <path id="line-fable"/>
+      <path id="ramp-five_hour" class="ramp"/>
+      <path id="ramp-seven_day" class="ramp"/>
+      <path id="ramp-fable" class="ramp"/>
     </svg>
     <div id="days"></div>
   </figure>

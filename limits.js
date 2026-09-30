@@ -60,6 +60,23 @@
     }).filter(line => line.length);
   }
 
+  // Before a window's first point only its start at 0 % is known: a straight line up to that point, drawn dashed.
+  function ramps(S, key, from, to) {
+    const pts = points(S, key);
+    return [...new Set(pts.map(p => p.resets_at))].map(end => {
+      const first = pts.find(p => p.resets_at === end);
+      return slope({ t: end - LENGTH[key], pct: 0 }, first, from, to);
+    }).filter(line => line.length);
+  }
+
+  // The part of the straight line from a to b between from and to.
+  function slope(a, b, from, to) {
+    const start = Math.max(from, a.t), end = Math.min(to, b.t);
+    if (start >= end) return [];
+    const at = t => a.pct + (b.pct - a.pct) * (t - a.t) / (b.t - a.t);
+    return [{ t: start, pct: at(start) }, { t: end, pct: at(end) }];
+  }
+
   // The part of a stepped line between a and b.
   function clip(line, a, b) {
     const start = Math.max(a, line[0].t), end = Math.min(b, line[line.length - 1].t);
@@ -77,11 +94,11 @@
       .map(w => ({ ...w, fill: lines.map(line => clip(line, w.start, w.end)).filter(l => l.length) }));
   }
 
-  function path(line, from, to, w, h) {
+  function path(line, from, to, w, h, stepped = true) {
     const r = v => Math.round(v * 10) / 10;
     const x = t => r((t - from) / (to - from) * w);
     const y = pct => r(h - pct / 100 * h);
-    return line.map((p, i) => (i ? `H${x(p.t)}V${y(p.pct)}` : `M${x(p.t)} ${y(p.pct)}`)).join('');
+    return line.map((p, i) => (!i ? `M${x(p.t)} ${y(p.pct)}` : stepped ? `H${x(p.t)}V${y(p.pct)}` : `L${x(p.t)} ${y(p.pct)}`)).join('');
   }
 
   function until(t, now) {
@@ -170,11 +187,12 @@
     for (const key of KEYS) {
       const d = segments(S, key, from, now).map(line => path(line, from, now, 700, 160)).join('');
       doc.getElementById(`line-${key}`).setAttribute('d', d);
+      doc.getElementById(`ramp-${key}`).setAttribute('d', ramps(S, key, from, now).map(line => path(line, from, now, 700, 160, false)).join(''));
     }
 
     const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
     // over weeks the 5 h line is noise under the weekly frames
-    if (framed === 'seven_day') doc.getElementById('line-five_hour').setAttribute('d', '');
+    if (framed === 'seven_day') for (const id of ['line-five_hour', 'ramp-five_hour']) doc.getElementById(id).setAttribute('d', '');
     const frames = doc.getElementById('frames');
     const x = t => Math.round((t - from) / (now - from) * 7000) / 10;
     const el = (name, attrs) => {
@@ -215,6 +233,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { points, current, segments, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
+  root.Limits = { points, current, segments, ramps, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

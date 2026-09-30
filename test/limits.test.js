@@ -298,3 +298,38 @@ test('windows: a weekly window outside the range is left out', () => {
   const S = [snap(T0, 'hw', null, [40, T0 + DAY]), snap(T0 + 10 * DAY, 'hw', null, [5, T0 + 14 * DAY])];
   assert.deepEqual(Limits.windows(S, 'seven_day', T0 + 9 * DAY, T0 + 11 * DAY).map(w => w.end), [T0 + 14 * DAY]);
 });
+
+test('ramps: from 0 % at the window start up to its first point', () => {
+  const S = [
+    snap(T0 + 4 * H, 'hw', [24, T0 + 5 * H], null),
+    snap(T0 + 4.5 * H, 'hw', [30, T0 + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), [[
+    { t: T0, pct: 0 },
+    { t: T0 + 4 * H, pct: 24 },
+  ]]);
+});
+
+test('ramps: one per window', () => {
+  const S = [
+    snap(T0 + H, 'hw', [10, T0 + 5 * H], null),
+    snap(T0 + 7 * H, 'hw', [20, T0 + 10 * H], null),
+  ];
+  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), [
+    [{ t: T0, pct: 0 }, { t: T0 + H, pct: 10 }],
+    [{ t: T0 + 5 * H, pct: 0 }, { t: T0 + 7 * H, pct: 20 }],
+  ]);
+});
+
+test('ramps: cut at the start of the range, at its height there', () => {
+  const S = [snap(T0 + 4 * H, 'hw', [40, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 + 2 * H, T0 + DAY), [[
+    { t: T0 + 2 * H, pct: 20 },
+    { t: T0 + 4 * H, pct: 40 },
+  ]]);
+});
+
+test('ramps: a first point at the window start has none', () => {
+  const S = [snap(T0, 'hw', [5, T0 + 5 * H], null)];
+  assert.deepEqual(Limits.ramps(S, 'five_hour', T0 - DAY, T0 + DAY), []);
+});
