@@ -1,6 +1,28 @@
 # claude-limits
 
-Your Claude plan limits on a page and in the menu bar: the 5-hour window, the weekly limit and the weekly Fable limit, with their history. Claude Code's status line records them, so nothing polls between turns. macOS only.
+**Your Claude plan limits, always in view.** The 5-hour window, the weekly limit and the weekly Fable limit, in your Mac's menu bar and on a page with their whole history. Free: no sign-up, no server, nothing to host.
+
+![The claude-limits page: three tiles for the 5-hour, weekly and Fable limits, a chart of the past week below](docs/page.jpg)
+
+`/usage` tells you where you stand when you ask. claude-limits tells you all the time:
+
+- **At a glance.** A pie in the menu bar fills up with the 5-hour window. One click shows all three limits and when they reset.
+- **With history.** Every window on a chart, from the last 5 hours to everything ever recorded, so you see how fast a week fills up.
+- **With a price tag.** Tokens per project, and what they would cost on the API.
+- **No polling.** Claude Code's status line records the limits on every turn you take.
+
+<table>
+  <tr>
+    <td><img src="docs/menubar.jpg" alt="The menu bar item: a pie with 13 % and the time left, and its panel with a bar per limit"></td>
+    <td><img src="docs/history.jpg" alt="The chart over 30 days: each weekly window framed and filled up to its usage"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/cost.jpg" alt="The table under the chart: tokens and API price per project for 30 days"></td>
+    <td><img src="docs/settings.jpg" alt="The settings window: limit, icon and text in the menu bar, reset format, panel rows"></td>
+  </tr>
+</table>
+
+macOS only.
 
 ## Setup
 
@@ -13,11 +35,13 @@ git clone https://github.com/Reconnact/claude-limits.git ~/claude-limits
 
 `install` makes the shared data folder, sets Claude Code's status line and starts the menu bar item at login. Run it again at any time; `./install --no-menubar` leaves out the menu bar.
 
-The next Claude Code turn records the limits. Then:
+The next Claude Code turn records the limits. Click the pie in the menu bar, or open the page straight away:
 
 ```sh
 open ~/claude-limits/index.html
 ```
+
+That's it.
 
 ### You already have a status line
 
@@ -33,6 +57,12 @@ IFS=$'\t' read -r H5 D7 < <("$HOME/claude-limits/collect" <<<"$INPUT" 2>/dev/nul
 ### Several macOS accounts
 
 Run `install` once in each account. Every account writes its own file into `/Users/Shared/claude-limits`, and the page and menu bar read all of them. Accounts on the same Claude login report the same limits, so the page shows one line per limit.
+
+### On your phone
+
+<img src="docs/phone.jpg" alt="The same page at iPhone width, inside Obsidian">
+
+[claude-limits for Obsidian](https://github.com/Reconnact/claude-limits-obsidian) shows the page inside Obsidian, on the Mac and on the phone. Your vault's sync carries the data along.
 
 ## The page
 
