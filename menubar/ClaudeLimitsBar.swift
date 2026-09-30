@@ -125,7 +125,7 @@ final class Bar: NSObject {
     override init() {
         super.init()
         popover.behavior = .transient
-        // transient alone misses clicks in other apps: the app is rarely active, activate() only asks
+        // transient alone misses some clicks in other apps
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.popover.performClose(nil) }
         item.button?.target = self
         item.button?.action = #selector(toggle)
@@ -159,18 +159,22 @@ final class Bar: NSObject {
                             target: self, action: #selector(open))
         open.keyEquivalent = "o"
         open.keyEquivalentModifierMask = .command
-        let quit = NSButton(title: "Quit", image: NSImage(systemSymbolName: "power", accessibilityDescription: nil)!,
-                            target: NSApp, action: #selector(NSApplication.terminate(_:)))
+        let quit = NSButton(title: "", target: NSApp, action: #selector(NSApplication.terminate(_:)))
+        quit.isBordered = false
+        quit.attributedTitle = NSAttributedString(string: "Quit", attributes: [.foregroundColor: NSColor.systemRed])
         quit.keyEquivalent = "q"
         quit.keyEquivalentModifierMask = .command
-        views.append(NSStackView(views: [open, quit]))
+        let buttons = NSStackView(views: [open, NSView(), quit])
+        views.append(buttons)
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -28).isActive = true
         return stack
     }
 
+    // activate() only asks and the panel stays unfocused, see-through; ignoringOtherApps still takes the focus
     @objc func toggle() {
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil); return }
@@ -178,7 +182,7 @@ final class Bar: NSObject {
         controller.view = content()
         controller.preferredContentSize = controller.view.fittingSize
         popover.contentViewController = controller
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         refresh()
     }
@@ -187,7 +191,7 @@ final class Bar: NSObject {
     @objc func open() {
         popover.performClose(nil)
         (pageWindow.contentView as? WKWebView)?.loadFileURL(page, allowingReadAccessTo: URL(fileURLWithPath: "/"))
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         pageWindow.makeKeyAndOrderFront(nil)
     }
 }
