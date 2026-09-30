@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
@@ -7,11 +8,55 @@ struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_d
 let dir = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_DIR"] ?? "/Users/Shared/claude-limits"
 // every account's file; the old app's history and the index are no live value
 let skip: Set = ["sources.js", "usage-for-claude.js"]
-let limits: [(name: String, key: KeyPath<Snapshot, Window?>, color: NSColor)] = [
-    ("5 h", \.five_hour, NSColor(red: 0x3b / 255, green: 0x8e / 255, blue: 0xff / 255, alpha: 1)),
-    ("7 d", \.seven_day, NSColor(red: 0xba / 255, green: 0x66 / 255, blue: 0xff / 255, alpha: 1)),
-    ("Fable", \.fable, NSColor(red: 0xe9 / 255, green: 0x97 / 255, blue: 0x3f / 255, alpha: 1)),
+let limits: [(id: String, name: String, key: KeyPath<Snapshot, Window?>, color: NSColor)] = [
+    ("five_hour", "5 h", \.five_hour, NSColor(red: 0x3b / 255, green: 0x8e / 255, blue: 0xff / 255, alpha: 1)),
+    ("seven_day", "7 d", \.seven_day, NSColor(red: 0xba / 255, green: 0x66 / 255, blue: 0xff / 255, alpha: 1)),
+    ("fable", "Fable", \.fable, NSColor(red: 0xe9 / 255, green: 0x97 / 255, blue: 0x3f / 255, alpha: 1)),
 ]
+let warnColor = NSColor(red: 0xe0 / 255, green: 0xde / 255, blue: 0x71 / 255, alpha: 1)
+
+// flat keys, so Claude can edit the file by hand; a missing or bad key falls back on its own
+struct Settings: Codable, Equatable {
+    var menuBarLimit = "five_hour"
+    var menuBarIcon = "pie"
+    var menuBarText = "none"
+    var resetFormat = "time"
+    var panelLimits = limits.map(\.id)
+    var warnAt = 80
+    var refreshSeconds = 60
+
+    static let path = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_SETTINGS"]
+        ?? NSString(string: "~/.config/claude-limits/settings.json").expandingTildeInPath
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func pick(_ key: CodingKeys, _ allowed: [String]) -> String? {
+            (try? c.decode(String.self, forKey: key)).flatMap { allowed.contains($0) ? $0 : nil }
+        }
+        menuBarLimit = pick(.menuBarLimit, limits.map(\.id) + ["highest"]) ?? menuBarLimit
+        menuBarIcon = pick(.menuBarIcon, ["pie", "bar", "none"]) ?? menuBarIcon
+        menuBarText = pick(.menuBarText, ["none", "percent", "reset", "both"]) ?? menuBarText
+        resetFormat = pick(.resetFormat, ["time", "countdown", "both"]) ?? resetFormat
+        if let ids = try? c.decode([String].self, forKey: .panelLimits) { panelLimits = ids.filter { limits.map(\.id).contains($0) } }
+        if let n = try? c.decode(Int.self, forKey: .warnAt), (0...100).contains(n) { warnAt = n }
+        if let n = try? c.decode(Int.self, forKey: .refreshSeconds), n >= 10 { refreshSeconds = n }
+    }
+
+    static func load() -> Settings {
+        (try? Data(contentsOf: URL(fileURLWithPath: path))).flatMap { try? JSONDecoder().decode(Settings.self, from: $0) } ?? Settings()
+    }
+
+    func save() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(self) else { return }
+        try? FileManager.default.createDirectory(atPath: (Settings.path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        try? (data + Data("\n".utf8)).write(to: URL(fileURLWithPath: Settings.path), options: .atomic)
+    }
+}
 
 func snapshots() -> [Snapshot] {
     let files = (try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []
@@ -33,18 +78,52 @@ func window(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, now: Double) -
     return w.resets_at <= now ? (0, nil) : (Int(w.used_percentage.rounded()), w.resets_at)
 }
 
+// the limit the menu bar shows; highest is the one closest to full
+func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_at: Double?)? {
+    let ws = limits.filter { s.menuBarLimit == "highest" || s.menuBarLimit == $0.id }.compactMap { window(all, $0.key, now: now) }
+    return ws.max { $0.pct < $1.pct }
+}
+
 func title(_ pct: Int?) -> String { pct.map { "\($0)%" } ?? "–" }
 
-func resets(_ t: Double?) -> String {
+func countdown(_ t: Double, now: Double) -> String {
+    let min = max(0, Int(t - now) / 60)
+    if min < 60 { return "\(min) min" }
+    if min < 24 * 60 { return "\(min / 60) h \(min % 60) min" }
+    return "\(min / (24 * 60)) d \(min % (24 * 60) / 60) h"
+}
+
+func when(_ t: Double?, _ format: String, now: Double) -> String {
     guard let t else { return "reset" }
     let date = Date(timeIntervalSince1970: t)
     let f = DateFormatter()
     f.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "EEE HH:mm"
-    return "resets \(f.string(from: date))"
+    switch format {
+    case "countdown": return "in \(countdown(t, now: now))"
+    case "both": return "\(f.string(from: date)) · in \(countdown(t, now: now))"
+    default: return f.string(from: date)
+    }
 }
 
-func rows(_ all: [Snapshot], now: Double) -> [(pct: Int, text: String)?] {
-    limits.map { l in window(all, l.key, now: now).map { ($0.pct, "\(l.name)\t\($0.pct) %\t\(resets($0.resets_at))") } }
+func resets(_ t: Double?, _ format: String, now: Double) -> String {
+    t == nil ? "reset" : "resets \(when(t, format, now: now))"
+}
+
+func menuBarTitle(_ all: [Snapshot], _ s: Settings, now: Double) -> String {
+    let w = shown(all, s, now: now)
+    switch s.menuBarText {
+    case "percent": return title(w?.pct)
+    case "reset": return w.map { when($0.resets_at, s.resetFormat, now: now) } ?? "–"
+    case "both": return w.map { "\($0.pct)% · \(when($0.resets_at, s.resetFormat, now: now))" } ?? "–"
+    default: return ""
+    }
+}
+
+func rows(_ all: [Snapshot], _ s: Settings, now: Double) -> [(pct: Int, text: String, color: NSColor)] {
+    s.panelLimits.compactMap { id in
+        guard let l = limits.first(where: { $0.id == id }), let w = window(all, l.key, now: now) else { return nil }
+        return (w.pct, "\(l.name)\t\(w.pct) %\t\(resets(w.resets_at, s.resetFormat, now: now))", l.color)
+    }
 }
 
 func age(_ all: [Snapshot], now: Double) -> String? {
@@ -53,8 +132,9 @@ func age(_ all: [Snapshot], now: Double) -> String? {
     return "last snapshot \(min < 120 ? "\(min) min" : "\(min / 60) h") ago"
 }
 
-func pie(_ pct: Int?) -> NSImage {
+func pie(_ pct: Int?, _ color: NSColor?) -> NSImage {
     let image = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
+        color?.set()
         let circle = rect.insetBy(dx: 1.5, dy: 1.5)
         let outline = NSBezierPath(ovalIn: circle)
         outline.lineWidth = 1.2
@@ -68,7 +148,22 @@ func pie(_ pct: Int?) -> NSImage {
         wedge.fill()
         return true
     }
-    image.isTemplate = true
+    image.isTemplate = color == nil
+    return image
+}
+
+func bar(_ pct: Int?, _ color: NSColor?) -> NSImage {
+    let image = NSImage(size: NSSize(width: 22, height: 16), flipped: false) { rect in
+        color?.set()
+        let frame = NSRect(x: 1.5, y: 4.5, width: rect.width - 3, height: 7)
+        let outline = NSBezierPath(roundedRect: frame, xRadius: 3.5, yRadius: 3.5)
+        outline.lineWidth = 1.2
+        outline.stroke()
+        let filled = NSRect(x: frame.minX, y: frame.minY, width: frame.width * CGFloat(min(pct ?? 0, 100)) / 100, height: frame.height)
+        NSBezierPath(roundedRect: filled, xRadius: 3.5, yRadius: 3.5).fill()
+        return true
+    }
+    image.isTemplate = color == nil
     return image
 }
 
@@ -85,12 +180,16 @@ func meter(_ pct: Int, _ color: NSColor) -> NSImage {
 
 let now = Date().timeIntervalSince1970
 if CommandLine.arguments.contains("--print") {
-    print(title(window(snapshots(), \.five_hour, now: now)?.pct))
+    print(title(shown(snapshots(), Settings.load(), now: now)?.pct))
+    exit(0)
+}
+if CommandLine.arguments.contains("--title") {
+    print(menuBarTitle(snapshots(), Settings.load(), now: now))
     exit(0)
 }
 if CommandLine.arguments.contains("--menu") {
     let all = snapshots()
-    rows(all, now: now).compactMap { $0?.text }.forEach { print($0) }
+    rows(all, Settings.load(), now: now).forEach { print($0.text) }
     age(all, now: now).map { print($0) }
     exit(0)
 }
@@ -110,15 +209,102 @@ final class PageWindow: NSWindow {
     }
 }
 
+// the window saves every change at once; a change to the file from outside, Claude's included, shows up here too
+final class Store: ObservableObject {
+    @Published var settings = Settings.load() {
+        didSet {
+            if !fromFile { settings.save() }
+            changed()
+        }
+    }
+    var changed: () -> Void = {}
+    private var fromFile = false
+
+    func reload() {
+        let s = Settings.load()
+        guard s != settings else { return }
+        fromFile = true
+        settings = s
+        fromFile = false
+    }
+}
+
+struct SettingsView: View {
+    @ObservedObject var store: Store
+
+    func panelRow(_ id: String) -> Binding<Bool> {
+        Binding(get: { store.settings.panelLimits.contains(id) },
+                set: { on in
+                    store.settings.panelLimits.removeAll { $0 == id }
+                    if on { store.settings.panelLimits.append(id) }
+                })
+    }
+
+    var body: some View {
+        Form {
+            Section("Menu bar") {
+                Picker("Limit", selection: $store.settings.menuBarLimit) {
+                    ForEach(limits, id: \.id) { Text($0.name).tag($0.id) }
+                    Text("Highest").tag("highest")
+                }
+                Picker("Icon", selection: $store.settings.menuBarIcon) {
+                    Text("Pie").tag("pie")
+                    Text("Bar").tag("bar")
+                    Text("None").tag("none")
+                }
+                Picker("Text", selection: $store.settings.menuBarText) {
+                    Text("None").tag("none")
+                    Text("Percent").tag("percent")
+                    Text("Reset").tag("reset")
+                    Text("Percent and reset").tag("both")
+                }
+                Stepper(store.settings.warnAt == 0 ? "Never turn yellow" : "Yellow from \(store.settings.warnAt) %",
+                        value: $store.settings.warnAt, in: 0...100, step: 5)
+            }
+            Section("Reset") {
+                Picker("Show", selection: $store.settings.resetFormat) {
+                    Text("Time").tag("time")
+                    Text("Time left").tag("countdown")
+                    Text("Both").tag("both")
+                }
+                .pickerStyle(.segmented)
+            }
+            Section("Panel") {
+                ForEach(limits, id: \.id) { Toggle($0.name, isOn: panelRow($0.id)) }
+            }
+            Section {
+                Stepper("Re-read the data every \(store.settings.refreshSeconds) s",
+                        value: $store.settings.refreshSeconds, in: 10...600, step: 10)
+                Text(Settings.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 400)
+        .fixedSize()
+    }
+}
+
 final class Bar: NSObject {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let popover = NSPopover()
+    let store = Store()
+    var lastRefresh = 0.0
 
     lazy var pageWindow: NSWindow = {
         let window = PageWindow(contentRect: .zero,
                                 styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "claude-limits"
         window.contentView = WKWebView()
+        window.isReleasedWhenClosed = false
+        return window
+    }()
+
+    lazy var settingsWindow: NSWindow = {
+        let window = PageWindow(contentViewController: NSHostingController(rootView: SettingsView(store: store)))
+        window.styleMask = [.titled, .closable]
+        // unsized until shown, so center() would pin it by its top edge
+        window.setContentSize(window.contentViewController!.view.fittingSize)
+        window.title = "claude-limits settings"
         window.isReleasedWhenClosed = false
         return window
     }()
@@ -130,12 +316,30 @@ final class Bar: NSObject {
         NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in self?.popover.performClose(nil) }
         item.button?.target = self
         item.button?.action = #selector(toggle)
+        item.button?.imagePosition = .imageLeading
+        store.changed = { [weak self] in self?.refresh() }
         refresh()
-        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
+        // the settings file is tiny, so reading it every second is cheaper than watching both the file and its folder
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            store.reload()
+            if Date().timeIntervalSince1970 - lastRefresh >= Double(store.settings.refreshSeconds) { refresh() }
+        }
     }
 
     func refresh() {
-        item.button?.image = pie(window(snapshots(), \.five_hour, now: Date().timeIntervalSince1970)?.pct)
+        let now = Date().timeIntervalSince1970
+        lastRefresh = now
+        let s = store.settings
+        let all = snapshots()
+        let pct = shown(all, s, now: now)?.pct
+        let color = s.warnAt > 0 && (pct ?? 0) >= s.warnAt ? warnColor : nil
+        let text = menuBarTitle(all, s, now: now)
+        let icon = s.menuBarIcon == "none" && text.isEmpty ? "pie" : s.menuBarIcon
+        item.button?.image = icon == "pie" ? pie(pct, color) : icon == "bar" ? bar(pct, color) : nil
+        var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)]
+        if let color { attributes[.foregroundColor] = color }
+        item.button?.attributedTitle = NSAttributedString(string: text, attributes: attributes)
     }
 
     func content() -> NSView {
@@ -145,10 +349,9 @@ final class Bar: NSObject {
         let style = NSMutableParagraphStyle()
         style.tabStops = [NSTextTab(textAlignment: .left, location: 50), NSTextTab(textAlignment: .left, location: 100)]
         let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        for (row, l) in zip(rows(all, now: now), limits) {
-            guard let row else { continue }
+        for row in rows(all, store.settings, now: now) {
             let text = NSTextField(labelWithAttributedString: NSAttributedString(string: row.text, attributes: [.font: font, .paragraphStyle: style]))
-            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, l.color)), text]))
+            views.append(NSStackView(views: [NSImageView(image: meter(row.pct, row.color)), text]))
         }
         if let age = age(all, now: now) {
             let label = NSTextField(labelWithString: age)
@@ -160,12 +363,16 @@ final class Bar: NSObject {
                             target: self, action: #selector(open))
         open.keyEquivalent = "o"
         open.keyEquivalentModifierMask = .command
+        let settings = NSButton(image: NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings")!,
+                                target: self, action: #selector(openSettings))
+        settings.keyEquivalent = ","
+        settings.keyEquivalentModifierMask = .command
         let quit = NSButton(title: "", target: NSApp, action: #selector(NSApplication.terminate(_:)))
         quit.isBordered = false
         quit.attributedTitle = NSAttributedString(string: "Quit", attributes: [.foregroundColor: NSColor.systemRed])
         quit.keyEquivalent = "q"
         quit.keyEquivalentModifierMask = .command
-        let buttons = NSStackView(views: [open, NSView(), quit])
+        let buttons = NSStackView(views: [open, settings, NSView(), quit])
         views.append(buttons)
         let stack = NSStackView(views: views)
         stack.orientation = .vertical
@@ -199,6 +406,13 @@ final class Bar: NSObject {
         }
         NSApp.activate(ignoringOtherApps: true)
         pageWindow.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func openSettings() {
+        popover.performClose(nil)
+        if !settingsWindow.isVisible { settingsWindow.center() }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow.makeKeyAndOrderFront(nil)
     }
 }
 

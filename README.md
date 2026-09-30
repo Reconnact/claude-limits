@@ -48,7 +48,35 @@ Reload for fresh numbers.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar and its reset time, and `Open page` (⌘O), which shows the page in a window of its own, fresh on each open; ⌘W or ⌘Q closes it. `Quit` ends the item; Spotlight starts it again as `claude-limits`, from `~/Applications/claude-limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar and its reset time, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `claude-limits`, from `~/Applications/claude-limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+
+### Settings
+
+The gear in the panel opens a window for them; they live in `~/.config/claude-limits/settings.json`, one file per macOS account. The window and the file are the same thing: a change in the window saves the file, and an edit to the file, by hand or by Claude, shows in the menu bar and in an open window within a second.
+
+```json
+{
+  "menuBarLimit": "five_hour",
+  "menuBarIcon": "pie",
+  "menuBarText": "none",
+  "resetFormat": "time",
+  "panelLimits": ["five_hour", "seven_day", "fable"],
+  "warnAt": 80,
+  "refreshSeconds": 60
+}
+```
+
+| key | values | default | what it does |
+|---|---|---|---|
+| `menuBarLimit` | `five_hour`, `seven_day`, `fable`, `highest` | `five_hour` | the limit in the menu bar; `highest` is the one closest to full |
+| `menuBarIcon` | `pie`, `bar`, `none` | `pie` | the icon |
+| `menuBarText` | `none`, `percent`, `reset`, `both` | `none` | text after the icon, e.g. `23% · in 2 h 13 min` |
+| `resetFormat` | `time`, `countdown`, `both` | `time` | the reset as `14:30`, `in 2 h 13 min`, or `14:30 · in 2 h 13 min`, in the panel and the menu bar |
+| `panelLimits` | `five_hour`, `seven_day`, `fable` | all three | the panel's rows, in this order |
+| `warnAt` | `0` to `100` | `80` | from this percentage the icon and text turn yellow; `0` never |
+| `refreshSeconds` | `10` and up | `60` | how often the data files are read |
+
+A missing file or key, or a value not in the list, takes the default. With no icon and no text the pie shows.
 
 ## Updates
 
