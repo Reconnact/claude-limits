@@ -126,16 +126,28 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
 const PARAMS = new URLSearchParams(location.search);
 const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
 const RANGES = { '5h': 5 / 24, 1: 1, 7: 7, 30: 30, all: 'all' };
-const DAYS = PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
-const LINE = PARAMS.get('line') === 'smooth' ? 'smooth' : 'steps';
-for (const a of document.querySelectorAll('nav a')) {
-  const [key, value] = Object.entries(a.dataset)[0];
-  const params = new URLSearchParams(PARAMS);
-  params.set(key, value);
-  a.href = `?${params}`;
-  if (value === { days: DAYS, line: LINE }[key]) a.setAttribute('aria-current', 'page');
-  a.onclick = () => sessionStorage.setItem('claude-limits-scroll', scrollY);
-}
+const days = () => PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
+const line = () => PARAMS.get('line') === 'smooth' ? 'smooth' : 'steps';
+const NAV = document.querySelectorAll('nav a');
+const mark = () => {
+  for (const a of NAV) {
+    const [key, value] = Object.entries(a.dataset)[0];
+    const params = new URLSearchParams(PARAMS);
+    params.set(key, value);
+    a.href = `?${params}`;
+    if (value === { days: days(), line: line() }[key]) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+};
+mark();
+// a button redraws in place: a new page would open empty and at the top, then jump
+for (const a of NAV) a.onclick = e => {
+  e.preventDefault();
+  PARAMS.set(...Object.entries(a.dataset)[0]);
+  history.replaceState(null, '', a.href);
+  mark();
+  if (S.length) draw();
+};
 var S = [], T = [], SOURCES = [];
 const load = (src, done) => {
   const el = document.createElement('script');
@@ -143,13 +155,7 @@ const load = (src, done) => {
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-// a button loads the page anew, which would open at the top; the page is short until it has drawn
-const draw = () => {
-  Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, LINE);
-  const y = sessionStorage.getItem('claude-limits-scroll');
-  sessionStorage.removeItem('claude-limits-scroll');
-  if (y) scrollTo(0, y);
-};
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[days()], T, PARAMS.get('reset') || undefined, line());
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
   const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
