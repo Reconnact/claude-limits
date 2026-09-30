@@ -388,6 +388,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        HStack(alignment: .top, spacing: 0) {
         Form {
             Section("Menu bar") {
                 Picker("Limit", selection: $store.settings.menuBarLimit) {
@@ -430,6 +431,9 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+        }
+        .frame(width: 380)
+        Form {
             Section("Panel rows") {
                 ForEach(limits, id: \.id) { Toggle($0.name, isOn: member(\.panelLimits, $0.id)) }
             }
@@ -442,8 +446,9 @@ struct SettingsView: View {
                 Text(Settings.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             }
         }
+        .frame(width: 380)
+        }
         .formStyle(.grouped)
-        .frame(width: 400)
         .fixedSize()
     }
 }
@@ -523,10 +528,11 @@ final class Bar: NSObject {
         var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)]
         if let color { attributes[.foregroundColor] = color }
         item.button?.attributedTitle = NSAttributedString(string: text, attributes: attributes)
-        // built here, not on the click, so the panel opens without the work
+        // built here, not on the click, so the panel opens without the work; the popover's own size, since it reads the
+        // controller's preferred size only while shown
         if !popover.isShown {
             panel.view = content()
-            panel.preferredContentSize = panel.view.fittingSize
+            popover.contentSize = panel.view.fittingSize
         }
     }
 
