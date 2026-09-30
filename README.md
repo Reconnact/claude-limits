@@ -97,6 +97,13 @@ touch ~/claude-limits/.auto-update
 
 Then, once a day, the next Claude Code turn pulls the newest version from the clone's `origin` in the background and rebuilds the menu bar item when its code changed. Whatever lands on `main` there runs on your Mac without you reviewing it first, with access to your Claude token. A clone with changes of its own is left alone.
 
+The history was rewritten on 2026-09-30. A clone made before that no longer fast-forwards, and its daily update stops without a word. Move it onto the new history once:
+
+```sh
+git -C ~/claude-limits fetch
+git -C ~/claude-limits reset --keep origin/main
+```
+
 ## How it works
 
 - Claude Code passes `rate_limits` to the status line on stdin; `collect` appends them to `/Users/Shared/claude-limits/<user>.js` when they are news: a later window, or the same window with a higher percentage
