@@ -109,6 +109,8 @@ check "settings: countdown in days" "resets in 3 d 4 h" "$(reset_text)"
 printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":24,"resets_at":%s}});\n' $((NOW - 60)) $((NOW + 42 * 60)) > "$TMP/hw.js"
 check "settings: countdown under an hour" "resets in 42 min" "$(reset_text)"
 
+check "the bare binary finds the page in its clone" "$PWD/index.html" "$(./menubar/claude-limits-bar --page)"
+
 # notifications: once when a limit reaches the yellow level, once when its pace fills the window before the reset
 alerts() { ./menubar/claude-limits-bar --alerts | cut -f1 | paste -sd '|' -; }
 line $((NOW - 60)) 85 $((NOW + 600)) > "$TMP/hw.js"

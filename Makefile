@@ -12,7 +12,8 @@ test: menubar
 
 LABEL := net.alpha-lab.claude-limits-bar
 PLIST := $(HOME)/Library/LaunchAgents/$(LABEL).plist
-# in ~/Applications so Spotlight finds it; the executable is a link, the app finds index.html through it
+# in ~/Applications so Spotlight finds it; the binary is copied in and the app signed ad hoc, or macOS refuses its notifications;
+# the app finds index.html through the clone's path in its Info.plist
 APP := $(HOME)/Applications/Claude limits.app
 
 menubar: menubar/claude-limits-bar
@@ -21,7 +22,7 @@ menubar/claude-limits-bar: menubar/ClaudeLimitsBar.swift
 
 install-menubar: menubar uninstall-menubar
 	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
-	ln -s $(CURDIR)/menubar/claude-limits-bar "$(APP)/Contents/MacOS/claude-limits-bar"
+	cp menubar/claude-limits-bar "$(APP)/Contents/MacOS/claude-limits-bar"
 	cp menubar/AppIcon.icns "$(APP)/Contents/Resources/"
 	@printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
@@ -32,7 +33,9 @@ install-menubar: menubar uninstall-menubar
 	  '<key>CFBundlePackageType</key><string>APPL</string>' \
 	  '<key>CFBundleIconFile</key><string>AppIcon</string>' \
 	  '<key>LSUIElement</key><true/>' \
+	  '<key>ClaudeLimitsRepo</key><string>$(CURDIR)</string>' \
 	  '</dict></plist>' > "$(APP)/Contents/Info.plist"
+	codesign --force --sign - "$(APP)"
 	@printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' \
 	  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
 	  '<plist version="1.0"><dict>' \

@@ -215,18 +215,18 @@ func bar(_ pct: Int?, _ color: NSColor?) -> NSImage {
     return image
 }
 
-// the tick is the share of the window that has passed: a fill past it is faster than the window allows
+// the tick is the share of the window that has passed: a fill past it is faster than the window allows; it crosses the bar, as on the page
 func meter(_ pct: Int, _ elapsed: Double?, _ color: NSColor) -> NSImage {
-    NSImage(size: NSSize(width: 40, height: 6), flipped: false) { rect in
+    NSImage(size: NSSize(width: 40, height: 10), flipped: false) { rect in
+        let bar = NSRect(x: 0, y: 2, width: rect.width, height: 6)
         NSColor.tertiaryLabelColor.setFill()
-        NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
+        NSBezierPath(roundedRect: bar, xRadius: 3, yRadius: 3).fill()
         color.setFill()
-        let filled = NSRect(x: 0, y: 0, width: rect.width * CGFloat(min(pct, 100)) / 100, height: rect.height)
+        let filled = NSRect(x: 0, y: bar.minY, width: bar.width * CGFloat(min(pct, 100)) / 100, height: bar.height)
         NSBezierPath(roundedRect: filled, xRadius: 3, yRadius: 3).fill()
         if let elapsed {
-            NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).addClip()
             NSColor.labelColor.setFill()
-            NSRect(x: min(rect.width - 1.5, rect.width * CGFloat(elapsed)), y: 0, width: 1.5, height: rect.height).fill()
+            NSBezierPath(roundedRect: NSRect(x: min(rect.width - 1.5, rect.width * CGFloat(elapsed) - 0.75), y: 0, width: 1.5, height: rect.height), xRadius: 0.75, yRadius: 0.75).fill()
         }
         return true
     }
@@ -292,6 +292,24 @@ if CommandLine.arguments.contains("--menu") {
     age(all, now: now).map { print($0) }
     exit(0)
 }
+// asks for the permission and sends one notification, printing what the system answers
+if CommandLine.arguments.contains("--notify-test") {
+    guard Bundle.main.bundleIdentifier != nil else { print("no app bundle: run it from ~/Applications/Claude limits.app"); exit(1) }
+    let center = UNUserNotificationCenter.current()
+    center.requestAuthorization(options: [.alert, .sound]) { ok, error in
+        print("authorization: \(ok)\(error.map { ", \($0.localizedDescription)" } ?? "")")
+        let content = UNMutableNotificationContent()
+        content.title = "Claude limits"
+        content.body = "notifications work"
+        center.add(UNNotificationRequest(identifier: "test", content: content, trigger: nil)) { error in
+            print("sent\(error.map { ", \($0.localizedDescription)" } ?? "")")
+            exit(0)
+        }
+    }
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 30))
+    print("no answer in 30 s")
+    exit(1)
+}
 if CommandLine.arguments.contains("--alerts") {
     alerts(snapshots(), Settings.load(), now: now).forEach { print("\($0.title)\t\($0.body)") }
     exit(0)
@@ -310,8 +328,14 @@ if let i = CommandLine.arguments.firstIndex(of: "--panel"), i + 1 < CommandLine.
     exit(0)
 }
 
-let page = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
-    .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("index.html")
+// the installed app carries the clone's path in its Info.plist; the bare binary sits in the clone
+let repo = (Bundle.main.infoDictionary?["ClaudeLimitsRepo"] as? String).map { URL(fileURLWithPath: $0) }
+    ?? URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent()
+let page = repo.appendingPathComponent("index.html")
+if CommandLine.arguments.contains("--page") {
+    print(page.path)
+    exit(0)
+}
 
 // the app has no menu bar to carry ⌘W, ⌘Q and ⌘,; ⌘Q only closes the window, Quit in the panel ends the app
 final class PageWindow: NSWindow {

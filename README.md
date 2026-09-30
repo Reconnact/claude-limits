@@ -100,7 +100,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar with the same tick as on the page, its reset time and, when the pace of the last hour fills the window first, the time that happens, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with each limit, its bar with the same tick as on the page, its reset time and the pace of the last hour as `12.6 %/h`, or `full 00:19` when it fills the window first, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
@@ -184,6 +184,7 @@ git -C ~/claude-limits reset --keep origin/main
 - in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, session, agent, entrypoint and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a session's folder is the one it started in, its title the last `/rename`, a subagent's kind comes from the `.meta.json` next to its transcript; none of that is documented, so a Claude Code release may change it; a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts; the one exception is the single recount after the update that changed which folder a session counts for, where only the transcripts stand for every hour they still cover
 - the API price is computed on the page from the prices in `limits.js`, fast mode at double; a model without a price is named under the table
 - once a day `collect` starts `update` in the background: with `.auto-update` in the clone, it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed
+- `make install-menubar` copies the built item into `~/Applications/Claude limits.app` and signs it ad hoc: macOS lets only a signed app send notifications; the app asks for that once
 
 **That endpoint is undocumented.** It can change or go away without notice; then the Fable tile keeps its last value and the other two carry on from the status line. The token never leaves your Mac except in that call to Anthropic, and never shows up in `ps`.
 
