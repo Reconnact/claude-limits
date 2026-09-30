@@ -101,17 +101,15 @@ test('current: a window that never came is null', () => {
   assert.equal(Limits.current(S, T0 + 10).seven_day, null);
 });
 
-test('segments: the line drops to 0 where a window ends and runs to the right edge', () => {
+test('segments: the line ends where its window resets, the next window starts a new one', () => {
   const S = [
     snap(T0 + 100, 'reconnact', [80, T0 + 5 * H], null),
     snap(T0 + 6 * H, 'reconnact', [3, T0 + 11 * H], null),
   ];
-  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 7 * H), [[
-    { t: T0 + 100, pct: 80 },
-    { t: T0 + 5 * H, pct: 0 },
-    { t: T0 + 6 * H, pct: 3 },
-    { t: T0 + 7 * H, pct: 3 },
-  ]]);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 7 * H), [
+    [{ t: T0 + 100, pct: 80 }, { t: T0 + 5 * H, pct: 80 }],
+    [{ t: T0 + 6 * H, pct: 3 }, { t: T0 + 7 * H, pct: 3 }],
+  ]);
 });
 
 test('segments: a reset still ahead adds no drop', () => {
@@ -138,17 +136,15 @@ test('segments: no snapshots, no line', () => {
   assert.deepEqual(Limits.segments([], 'five_hour', T0, T0 + H), []);
 });
 
-test('segments: days without a snapshot hold the value until the reset, then 0', () => {
+test('segments: days without a snapshot hold the value until the reset, then no line', () => {
   const S = [
     snap(T0, 'hw', [50, T0 + 5 * H], null),
     snap(T0 + 3 * DAY, 'hw', [10, T0 + 3 * DAY + 5 * H], null),
   ];
-  assert.deepEqual(Limits.segments(S, 'five_hour', T0 - H, T0 + 3 * DAY + H), [[
-    { t: T0, pct: 50 },
-    { t: T0 + 5 * H, pct: 0 },
-    { t: T0 + 3 * DAY, pct: 10 },
-    { t: T0 + 3 * DAY + H, pct: 10 },
-  ]]);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 - H, T0 + 3 * DAY + H), [
+    [{ t: T0, pct: 50 }, { t: T0 + 5 * H, pct: 50 }],
+    [{ t: T0 + 3 * DAY, pct: 10 }, { t: T0 + 3 * DAY + H, pct: 10 }],
+  ]);
 });
 
 test('segments: snapshots that repeat a value keep the line going', () => {
@@ -160,19 +156,18 @@ test('segments: snapshots that repeat a value keep the line going', () => {
   ]]);
 });
 
-test('segments: a snapshot without the window counts as 0', () => {
+test('segments: a snapshot without the window adds no line', () => {
   const S = [
     snap(T0, 'hw', [80, T0 + H], [40, T0 + 100 * H]),
     snap(T0 + 2 * H, 'hw', null, [40, T0 + 100 * H]),
   ];
   assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 2 * H), [[
     { t: T0, pct: 80 },
-    { t: T0 + H, pct: 0 },
-    { t: T0 + 2 * H, pct: 0 },
+    { t: T0 + H, pct: 80 },
   ]]);
 });
 
-test('segments: after the last snapshot the line runs on to the right edge', () => {
+test('segments: after the last snapshot the line runs on to its reset', () => {
   const S = [
     snap(T0, 'hw', [50, T0 + 5 * H], null),
     snap(T0 + H, 'hw', [60, T0 + 5 * H], null),
@@ -180,17 +175,13 @@ test('segments: after the last snapshot the line runs on to the right edge', () 
   assert.deepEqual(Limits.segments(S, 'five_hour', T0, T0 + 3 * DAY), [[
     { t: T0, pct: 50 },
     { t: T0 + H, pct: 60 },
-    { t: T0 + 5 * H, pct: 0 },
-    { t: T0 + 3 * DAY, pct: 0 },
+    { t: T0 + 5 * H, pct: 60 },
   ]]);
 });
 
-test('segments: a window that reset before the range is 0 across it', () => {
+test('segments: a window that reset before the range has no line in it', () => {
   const S = [snap(T0, 'hw', [50, T0 + 5 * H], null)];
-  assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), [[
-    { t: T0 + 2 * DAY, pct: 0 },
-    { t: T0 + 3 * DAY, pct: 0 },
-  ]]);
+  assert.deepEqual(Limits.segments(S, 'five_hour', T0 + 2 * DAY, T0 + 3 * DAY), []);
 });
 
 test('current: the fable window', () => {
@@ -299,7 +290,7 @@ test('windows: one per reset, starting one window length before it', () => {
   ];
   const w = Limits.windows(S, 'five_hour', T0, T0 + 7 * H);
   assert.deepEqual(w.map(w => [w.start, w.end]), [[T0, T0 + 5 * H], [T0 + 6 * H, T0 + 11 * H]]);
-  assert.deepEqual(w[0].fill[0].map(p => p.pct), [10, 20, 0]);
+  assert.deepEqual(w[0].fill[0].map(p => p.pct), [10, 20, 20]);
   assert.deepEqual(w.map(w => w.peak), [20, 5]);
 });
 

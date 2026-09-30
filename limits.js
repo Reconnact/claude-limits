@@ -50,22 +50,14 @@
     };
   }
 
-  // One line per stretch of snapshots: more than a day without one is no data, not 0 %, and so is the time before the window's first point.
+  // One line per window, from its first point to its reset: snapshots come only with Claude Code turns, so a gap is idle time and the value holds.
   function segments(S, key, from, to) {
-    const steps = [];
     const pts = points(S, key);
-    pts.forEach((p, i) => {
-      steps.push({ t: p.t, pct: p.pct });
-      const next = pts[i + 1];
-      const ends = !next || next.resets_at !== p.resets_at;
-      if (ends && p.resets_at <= to && (!next || p.resets_at <= next.t)) steps.push({ t: p.resets_at, pct: 0 });
-    });
-    const at = t => (steps.filter(p => p.t <= t).pop() || { pct: 0 }).pct;
-
-    // snapshots come only with Claude Code turns, so a gap is idle time: the value holds until its window resets
-    if (!pts.length || pts[0].t > to) return [];
-    const start = Math.max(pts[0].t, from);
-    return [[{ t: start, pct: at(start) }, ...steps.filter(p => p.t > start && p.t <= to), { t: to, pct: at(to) }]];
+    return [...new Set(pts.map(p => p.resets_at))].map(end => {
+      const own = pts.filter(p => p.resets_at === end).map(p => ({ t: p.t, pct: p.pct })), last = own[own.length - 1];
+      const next = pts.find(p => p.t > last.t);
+      return clip([...own, { t: Math.min(end, next ? next.t : end), pct: last.pct }], from, to);
+    }).filter(line => line.length);
   }
 
   // The part of a stepped line between a and b.
