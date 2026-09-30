@@ -75,7 +75,7 @@ Run `install` once in each account. Every account writes its own file into `/Use
 - `?dir=<url>` reads the data from another folder
 - `?reset=time`, `countdown` or `both` shows the reset as in the menu bar's settings; `Open page` passes it, opened from disk the page counts down
 - `?theme=light` or `dark` overrides the system appearance; `Open page` passes the setting
-- `?line=smooth` draws the chart as straight lines from snapshot to snapshot instead of steps; `Open page` passes the setting
+- `Steps` and `Smooth` next to the range buttons draw the chart with a step at each snapshot or as straight lines from one to the next (`?line=steps`, `smooth`); `Open page` starts with the menu bar's setting
 
 The page reloads itself every minute.
 

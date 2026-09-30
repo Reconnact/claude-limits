@@ -34,6 +34,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-top: clamp(40px, 7vw, 80px); }
   #asof { font-size: .85rem; color: var(--text-3); }
   main.stale #asof { color: var(--text); }
+  .navs { display: flex; flex-wrap: wrap; gap: 12px; }
   nav { display: flex; padding: 3px; border: 1px solid var(--edge); border-radius: 10px; background: var(--track); }
   nav a { min-width: 3.2em; padding: .45em .8em; border-radius: 7px; font-size: .9rem; font-weight: 500; text-align: center; color: var(--text-2); text-decoration: none; }
   nav a:hover { color: var(--text); background: var(--rule); }
@@ -76,6 +77,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
 
   @media (max-width: 560px) {
     .controls { flex-direction: column-reverse; align-items: stretch; }
+    .navs { flex-direction: column; }
     nav a { flex: 1; min-width: 0; padding: .6em 0; white-space: nowrap; }
     h2 { gap: .45em; font-size: .9rem; }
     h2::before { width: .9em; }
@@ -90,7 +92,10 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   </div>
   <div class="controls">
     <span id="asof"></span>
-    <nav aria-label="Chart range"><a data-days="5h">5 h</a><a data-days="1">1 d</a><a data-days="7">7 d</a><a data-days="30">30 d</a><a data-days="all">All</a></nav>
+    <div class="navs">
+      <nav aria-label="Chart line"><a data-line="steps">Steps</a><a data-line="smooth">Smooth</a></nav>
+      <nav aria-label="Chart range"><a data-days="5h">5 h</a><a data-days="1">1 d</a><a data-days="7">7 d</a><a data-days="30">30 d</a><a data-days="all">All</a></nav>
+    </div>
   </div>
   <figure>
     <p class="axis top">100 %</p>
@@ -121,11 +126,13 @@ const PARAMS = new URLSearchParams(location.search);
 const DIR = PARAMS.get('dir') || 'file:///Users/Shared/claude-limits';
 const RANGES = { '5h': 5 / 24, 1: 1, 7: 7, 30: 30, all: 'all' };
 const DAYS = PARAMS.get('days') in RANGES ? PARAMS.get('days') : '7';
+const LINE = PARAMS.get('line') === 'smooth' ? 'smooth' : 'steps';
 for (const a of document.querySelectorAll('nav a')) {
+  const [key, value] = Object.entries(a.dataset)[0];
   const params = new URLSearchParams(PARAMS);
-  params.set('days', a.dataset.days);
+  params.set(key, value);
   a.href = `?${params}`;
-  if (a.dataset.days === DAYS) a.setAttribute('aria-current', 'page');
+  if (value === { days: DAYS, line: LINE }[key]) a.setAttribute('aria-current', 'page');
 }
 var S = [], T = [], SOURCES = [];
 const load = (src, done) => {
@@ -134,7 +141,7 @@ const load = (src, done) => {
   el.onload = el.onerror = done;
   document.head.append(el);
 };
-const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, PARAMS.get('line') || undefined);
+const draw = () => Limits.render(document, S, Date.now() / 1000, RANGES[DAYS], T, PARAMS.get('reset') || undefined, LINE);
 load(`${DIR}/sources.js`, () => {
   const names = [...new Set(SOURCES)];
   const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
