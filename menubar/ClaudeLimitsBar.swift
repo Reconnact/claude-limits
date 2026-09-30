@@ -121,7 +121,6 @@ final class Bar: NSObject {
         window.contentView = WKWebView()
         window.isReleasedWhenClosed = false
         window.center()
-        window.setFrameAutosaveName("page")
         return window
     }()
 
@@ -177,7 +176,7 @@ final class Bar: NSObject {
         return stack
     }
 
-    // activate() only asks and the panel stays unfocused, see-through; ignoringOtherApps still takes the focus
+    // unfocused the panel is see-through; activating the app to focus it also raises the page window
     @objc func toggle() {
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil); return }
@@ -185,8 +184,9 @@ final class Bar: NSObject {
         controller.view = content()
         controller.preferredContentSize = controller.view.fittingSize
         popover.contentViewController = controller
-        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        controller.view.window?.styleMask.insert(.nonactivatingPanel)
+        controller.view.window?.makeKey()
         refresh()
     }
 
