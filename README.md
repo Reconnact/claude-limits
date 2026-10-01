@@ -66,7 +66,7 @@ The limits belong to the Claude account, so the page shows every machine's turns
 CLAUDE_LIMITS_DIR=~/claude-limits-data ~/claude-limits/tally
 ```
 
-writes `<user>-tokens.js` there, from cron say. Bring it over under a name of its own, list that name once, and the page adds it up, with Machine as one more split:
+writes `<user>-tokens.js` there, from cron say. The folder has to be there: without it `tally` says so on stderr and exits 1, so a cron job fails instead of running quietly. Bring it over under a name of its own, list that name once, and the page adds it up, with Machine as one more split:
 
 ```sh
 rsync server:claude-limits-data/jochen-tokens.js /Users/Shared/claude-limits/server-tokens.js
