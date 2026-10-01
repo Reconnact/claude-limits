@@ -165,9 +165,17 @@ check "a cache from before the session fields is read again" "yes" "$(jq -c 'del
 
 check "a row names the machine it was counted on" "$(uname -n | cut -d. -f1)" "$(rows 'select(.hour >= 1790762400) | .host' | tr -d '"' | sort -u | paste -sd '|' -)"
 
-# no transcripts at all writes nothing
+# a data folder that is not there, say a cron job on Linux without CLAUDE_LIMITS_DIR, is an error, not a run that writes nothing
+CLAUDE_LIMITS_DIR="$TMP/missing" ./tally 2> "$TMP/err"; STATUS=$?
+check "no data folder, exit 1" "1" "$STATUS"
+check "no data folder, stderr names it" "yes" "$(grep -qF "$TMP/missing" "$TMP/err" && echo yes || echo no)"
+check "no data folder, none made" "no" "$([ -e "$TMP/missing" ] && echo yes || echo no)"
+
+# no transcripts at all writes nothing, without a word
 rm -rf "$TMP/claude/projects" "$OUT"
-./tally
+./tally 2> "$TMP/err"; STATUS=$?
 check "no transcripts, no file" "no" "$([ -f "$OUT" ] && echo yes || echo no)"
+check "no transcripts, exit 0" "0" "$STATUS"
+check "no transcripts, nothing on stderr" "" "$(cat "$TMP/err")"
 
 exit $FAILED

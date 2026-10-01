@@ -7,7 +7,10 @@ FILE="$DIR/$ME-tokens.js"
 CACHE="$DIR/.$ME-tally.jsonl"
 STAMP="$DIR/.$ME-tallied"
 PROJECTS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
-[ -d "$PROJECTS" ] && [ -d "$DIR" ] || exit 0
+# on Linux the default folder never exists, so a cron job without CLAUDE_LIMITS_DIR would write nothing without a word
+[ -d "$DIR" ] || { echo "tally: no data folder $DIR, create it or set CLAUDE_LIMITS_DIR" >&2; exit 1; }
+# a machine without transcripts has nothing to count
+[ -d "$PROJECTS" ] || exit 0
 
 TMP="$DIR/.$ME-tally.$$"
 trap 'rm -f "$TMP".*' EXIT
