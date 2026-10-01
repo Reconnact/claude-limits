@@ -56,7 +56,7 @@ check "fast and standard apart" '9 fast|4 -' "$(rows 'select(.model == "claude-f
 rm "$TMP/claude/projects/p/s2.jsonl"
 msg m7 "$HOME/Workspace/a" 2026-09-30T11:30:00.000Z claude-opus-5-5 10 >> "$TMP/claude/projects/p/s1.jsonl"
 ./tally
-check "deleted transcript, rows stay" "13" "$(rows 'select(.model == "claude-fable-5-1") | .output' | paste -sd+ - | bc)"
+check "deleted transcript, rows stay" "13" "$(rows 'select(.model == "claude-fable-5-1") | .output' | jq -s add)"
 check "new message adds to its hour" "13" "$(rows 'select(.model == "claude-opus-5-5" and .hour == 1790766000) | .output')"
 
 # a resumed session copies earlier messages into its own transcript
