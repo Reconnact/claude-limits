@@ -73,7 +73,7 @@
   function paceText(p, now, key) {
     if (!p) return '';
     const rate = key === 'five_hour' ? `${p.rate.toFixed(1)} %/h` : `${Math.round(p.rate * 24)} %/d`;
-    return p.full ? `at this pace full ${clock(p.full, now)} · ${rate}` : `on track · ${rate}`;
+    return p.full ? `at this pace full ${clock(p.full, now)} · ${rate}` : rate;
   }
 
   // points() keeps a window's points together, so one pass splits them.

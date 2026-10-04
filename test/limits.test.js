@@ -158,8 +158,8 @@ test('pace: an expired window has none', () => {
 
 test('pace: the text under a limit, per hour or per day', () => {
   assert.equal(Limits.paceText(null, T0, 'five_hour'), '');
-  assert.equal(Limits.paceText({ rate: 5, full: null }, T0, 'five_hour'), 'on track · 5.0 %/h');
-  assert.equal(Limits.paceText({ rate: 1.3, full: null }, T0, 'seven_day'), 'on track · 31 %/d');
+  assert.equal(Limits.paceText({ rate: 5, full: null }, T0, 'five_hour'), '5.0 %/h');
+  assert.equal(Limits.paceText({ rate: 1.3, full: null }, T0, 'seven_day'), '31 %/d');
   assert.match(Limits.paceText({ rate: 40, full: T0 + 3 * H }, T0, 'five_hour'), /^at this pace full (\w{3} )?\d\d:\d\d · 40\.0 %\/h$/);
 });
 
