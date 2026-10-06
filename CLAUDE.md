@@ -14,5 +14,3 @@
 ```sh
 CLAUDE_LIMITS_REPO=<this clone> make test
 ```
-
-They catch a changed string, not a renamed selector: `main`, `.tiles`, `.controls`, `.navs`, `figure`, `.projects` and `#split` have to stay.
