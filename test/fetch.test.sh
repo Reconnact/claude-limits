@@ -16,9 +16,13 @@ check() {   # check <name> <expected> <actual>
 }
 
 mkdir -p "$TMP/bin"
+# as in #20: the entry of the macOS account holds the token, the one found by the service alone only MCP servers' state
 cat > "$TMP/bin/security" <<'SH'
 #!/bin/sh
-printf '{"claudeAiOauth":{"accessToken":"tok"}}'
+case " $* " in
+  *" -a $(id -un) "*) printf '{"claudeAiOauth":{"accessToken":"tok"}}' ;;
+  *) printf '{"mcpOAuth":{}}' ;;
+esac
 SH
 cat > "$TMP/bin/curl" <<SH
 #!/bin/sh
@@ -61,6 +65,17 @@ printf '<html>' > "$TMP/answer.json"
 ./fetch-usage; CODE=$?
 check "garbage answer exits 0" "0" "$CODE"
 check "garbage answer writes nothing" "no" "$([ -f "$OUT" ] && echo yes || echo no)"
+
+# no entry for the macOS account, so the one found by the service alone
+cat > "$TMP/bin/security" <<'SH'
+#!/bin/sh
+case " $* " in
+  *" -a "*) exit 44 ;;
+  *) printf '{"claudeAiOauth":{"accessToken":"svc"}}' ;;
+esac
+SH
+./fetch-usage
+check "no entry for the account, token of the service alone" 'header = "Authorization: Bearer svc"' "$(cat "$TMP/curl-stdin")"
 
 # no token, no call
 printf '#!/bin/sh\nexit 44\n' > "$TMP/bin/security"
