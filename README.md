@@ -73,7 +73,31 @@ rsync server:claude-limits-data/jochen-tokens.js /Users/Shared/claude-limits/ser
 echo 'SOURCES.push("server");' >> /Users/Shared/claude-limits/sources.js
 ```
 
-`tally` uses nothing from macOS, but it has only been run there.
+To fetch it every 30 minutes, save this as `~/Library/LaunchAgents/claude-limits-server.plist`. ssh needs a key it can use without a prompt; a run missed while the Mac is offline is caught up by the next:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>claude-limits-server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/rsync</string>
+    <string>server:claude-limits-data/jochen-tokens.js</string>
+    <string>/Users/Shared/claude-limits/server-tokens.js</string>
+  </array>
+  <key>StartInterval</key><integer>1800</integer>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+```
+
+```sh
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/claude-limits-server.plist
+```
+
+`tally` runs on Linux too, tested on Rocky Linux 10.2 from cron.
 
 ### On your phone
 
