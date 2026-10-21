@@ -73,6 +73,14 @@ check "lower percentage is still printed" "$(printf '20\t40')" "$OUT"
 # a higher percentage in the same window is news
 input 25 1790000000 41.2 1790400000 | run "$D" >/dev/null
 check "higher percentage appends" "2" "$(lines "$D")"
+check "a status line reading is not marked fresh" "false" "$(tail -1 "$D/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq 'has("fresh")')"
+
+# a limit reset keeps the window and lowers the value; only the usage endpoint's reading is sure to be current
+R="$TMP/reset"
+input 30 1790000000 100 1790400000 | run "$R" >/dev/null
+input 30 1790000000 2 1790400000 | sed 's/^{/{"fresh":true,/' | run "$R" >/dev/null
+check "a lower reading from the usage endpoint appends" "2" "$(lines "$R")"
+check "a reading from the usage endpoint is marked fresh" "true 2" "$(tail -1 "$R/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq -r '"\(.fresh) \(.seven_day.used_percentage)"')"
 
 # a reset time that moved by seconds is the same window
 input 25 1790000030 41.2 1790400000 | run "$D" >/dev/null

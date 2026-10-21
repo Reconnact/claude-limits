@@ -18,14 +18,15 @@
     'claude-haiku-4-5': [1, 5, 0.1],
   };
 
-  // One point per rise: both accounts report the same number, and an idle session repeats an old one.
+  // One point per change: both accounts report the same number, and an idle session repeats an old one, so a status line only
+  // raises a window. A limit reset keeps the window and lowers it, which only a fresh reading from the usage endpoint can tell.
   function points(S, key) {
     const out = [];
     let last = null;
     for (const s of S.filter(s => s[key]).sort((a, b) => a.ts - b.ts)) {
       const w = s[key];
       const same = last && Math.abs(w.resets_at - last.resets_at) <= SAME_WINDOW;
-      if (last && (same ? w.used_percentage <= last.pct : w.resets_at < last.resets_at)) continue;
+      if (last && (same ? (s.fresh ? w.used_percentage === last.pct : w.used_percentage <= last.pct) : w.resets_at < last.resets_at)) continue;
       last = { t: s.ts, pct: w.used_percentage, resets_at: same ? last.resets_at : w.resets_at };
       out.push(last);
     }
@@ -51,9 +52,9 @@
     };
   }
 
-  // The rise over the span in % per hour, counted across a reset from each window's held value; before a window's first
-  // snapshot nothing is known, so the span starts at the first snapshot it meets. And when the current window reaches 100 %
-  // at that rate, if that comes before its reset.
+  // The rise over the span in % per hour, counted across a reset from each window's held value and past a limit reset inside
+  // a window, which only lowers it; before a window's first snapshot nothing is known, so the span starts at the first snapshot
+  // it meets. And when the current window reaches 100 % at that rate, if that comes before its reset.
   function pace(S, key, now) {
     const pts = points(S, key);
     const last = pts[pts.length - 1];
@@ -62,8 +63,12 @@
     const since = Math.max(now - RATE_SPAN[key], Math.min(...windows.map(w => w.own[0].t)));
     if (since >= now) return null;
     const rise = windows.reduce((sum, { end, own }) => {
-      const at = t => own.filter(p => p.t <= t).map(p => p.pct).pop() || 0;
-      return sum + at(Math.min(now, end)) - at(since);
+      let prev = own.filter(p => p.t <= since).map(p => p.pct).pop() || 0;
+      for (const p of own.filter(p => p.t > since && p.t <= Math.min(now, end))) {
+        sum += Math.max(0, p.pct - prev);
+        prev = p.pct;
+      }
+      return sum;
     }, 0);
     const rate = rise / (now - since) * 3600;
     const full = rate > 0 ? now + (100 - last.pct) / rate * 3600 : null;

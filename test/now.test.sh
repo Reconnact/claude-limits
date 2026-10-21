@@ -36,6 +36,14 @@ check "ts is the last check, values or not" "$((NOW - 30))" "$(./now | jq -r .ts
 AGE="$(./now | jq -r .age)"
 check "age in seconds" "yes" "$([ "$AGE" -ge 30 ] && [ "$AGE" -lt 40 ] && echo yes || echo no)"
 
+# a limit reset keeps the window and lowers the value; only the usage endpoint's reading is sure to be current
+rm "$TMP"/*.js
+line reconnact $((NOW - 600)) 24 $((NOW + 3600)) 100 $((NOW + 90000))
+printf 'S.push({"ts":%s,"source":"hw","seven_day":{"used_percentage":2,"resets_at":%s},"fresh":true});\n' $((NOW - 300)) $((NOW + 90000)) >> "$TMP/hw.js"
+check "after a limit reset, the value from the usage endpoint" '{"used_percentage":2,"resets_at":'$((NOW + 90000))'}' "$(./now | jq -c .seven_day)"
+line reconnact $((NOW - 200)) 24 $((NOW + 3600)) 1 $((NOW + 90000))
+check "a lower status line reading after it lowers nothing" "2" "$(./now | jq -r .seven_day.used_percentage)"
+
 rm "$TMP"/*.js
 line hw $((NOW - 7200)) 80 $((NOW - 60)) 69 $((NOW + 90000))
 check "a window past its reset is 0 with no reset" "0 null" "$(./now | jq -r '"\(.five_hour.used_percentage) \(.five_hour.resets_at)"')"
