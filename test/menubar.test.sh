@@ -46,6 +46,11 @@ line $((NOW - 60)) 28 $((NOW + 3600)) >> "$TMP/reconnact.js"
 check "same second, the higher value" "28%" "$(bar)"
 line $((NOW - 60)) 5 $((NOW + 5 * 3600)) >> "$TMP/reconnact.js"
 check "a newer window wins over a higher value" "5%" "$(bar)"
+line $((NOW - 600)) 100 $((NOW + 3600)) > "$TMP/reconnact.js"
+printf 'S.push({"ts":%s,"source":"hw","five_hour":{"used_percentage":2,"resets_at":%s},"fresh":true});\n' $((NOW - 300)) $((NOW + 3600)) > "$TMP/hw.js"
+check "after a limit reset, the value from the usage endpoint" "2%" "$(bar)"
+line $((NOW - 60)) 1 $((NOW + 3600)) >> "$TMP/reconnact.js"
+check "a lower status line reading after it lowers nothing" "2%" "$(bar)"
 
 rm "$TMP"/*.js
 line $((NOW - 60)) 33 $((NOW + 3600)) > "$TMP/someone.js"
@@ -77,6 +82,13 @@ line $((NOW - 60)) 5 $((NOW + 5 * 3600 - 60)) > "$TMP/hw.js"
 check "a lone first snapshot has no rise yet" "0.0 %/h" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f3)"
 ./menubar/claude-limits-bar --panel "$TMP/panel.png"
 check "the panel renders to a file" "yes" "$([ -s "$TMP/panel.png" ] && echo yes || echo no)"
+d7() {   # d7 <file> <ts> <pct> [fresh]
+  printf 'S.push({"ts":%s,"source":"x","seven_day":{"used_percentage":%s,"resets_at":%s}%s});\n' "$2" "$3" $((NOW + 3 * 86400)) "${4:+,\"fresh\":true}" >> "$TMP/$1.js"
+}
+rm "$TMP"/*.js
+d7 reconnact $((NOW - 20 * 3600)) 90; d7 reconnact $((NOW - 10 * 3600)) 100; d7 hw $((NOW - 4 * 3600)) 0 fresh; d7 reconnact $((NOW - 60)) 8
+check "a limit reset inside a window: the pace counts only the rises around it" "22 %/d" "$(./menubar/claude-limits-bar --menu | grep '^7 d' | cut -f3)"
+rm "$TMP"/*.js
 
 settings() { printf '%s' "$1" > "$CLAUDE_LIMITS_SETTINGS"; }
 title() { ./menubar/claude-limits-bar --title; }

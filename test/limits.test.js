@@ -32,6 +32,21 @@ test('points: a lower percentage in the same window is dropped', () => {
   assert.deepEqual(Limits.points(S, 'five_hour').map(p => p.pct), [20, 22]);
 });
 
+test('points: a lower percentage from the usage endpoint is a limit reset, and the window rises from there', () => {
+  const S = [
+    snap(T0 + 100, 'reconnact', null, [100, T0 + 3 * DAY]),
+    { ...snap(T0 + 200, 'hw', null, [2, T0 + 3 * DAY + 30]), fresh: true },
+    snap(T0 + 300, 'reconnact', null, [1, T0 + 3 * DAY]),
+    snap(T0 + 400, 'reconnact', null, [3, T0 + 3 * DAY]),
+  ];
+  assert.deepEqual(Limits.points(S, 'seven_day').map(p => p.pct), [100, 2, 3]);
+});
+
+test('current: after a limit reset, the value from the usage endpoint', () => {
+  const S = [snap(T0 + 100, 'reconnact', null, [100, T0 + 3 * DAY]), { ...snap(T0 + 200, 'hw', null, [2, T0 + 3 * DAY]), fresh: true }];
+  assert.equal(Limits.current(S, T0 + 300).seven_day.pct, 2);
+});
+
 test('points: an older window after a newer one is dropped', () => {
   const S = [
     snap(T0 + 100, 'reconnact', [5, T0 + 10 * H], null),
@@ -144,6 +159,16 @@ test('pace: the rise counts across a reset, so a young window has one', () => {
 test('pace: the weekly limits take the rise over the last day, from the first snapshot in it', () => {
   const S = [snap(T0 - 20 * H, 'hw', null, [10, T0 + 3 * DAY]), snap(T0 - 2 * H, 'hw', null, [30, T0 + 3 * DAY]), snap(T0, 'hw', null, [40, T0 + 3 * DAY])];
   assert.deepEqual(Limits.pace(S, 'seven_day', T0), { rate: 1.5, full: T0 + (100 - 40) / 1.5 * 3600 });
+});
+
+test('pace: a limit reset inside a window counts only the rises around it', () => {
+  const S = [
+    snap(T0 - 20 * H, 'hw', null, [90, T0 + 3 * DAY]),
+    snap(T0 - 10 * H, 'hw', null, [100, T0 + 3 * DAY]),
+    { ...snap(T0 - 4 * H, 'hw', null, [0, T0 + 3 * DAY]), fresh: true },
+    snap(T0, 'hw', null, [8, T0 + 3 * DAY]),
+  ];
+  assert.deepEqual(Limits.pace(S, 'seven_day', T0), { rate: 0.9, full: null });
 });
 
 test('pace: an idle stretch brings the rate down to 0', () => {

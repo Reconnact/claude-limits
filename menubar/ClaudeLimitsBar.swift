@@ -3,7 +3,7 @@ import SwiftUI
 import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
-struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window? }
+struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window?; let fresh: Bool? }
 
 let dir = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_DIR"] ?? "/Users/Shared/claude-limits"
 // every account's file; the old app's history and the index are no live value
@@ -86,13 +86,24 @@ func snapshots() -> [Snapshot] {
         }
 }
 
-// as on the page: the newest window and its highest value, so two snapshots in the same second cannot lower it
+// as points() on the page: a status line only raises a window, since an idle session repeats an old value; a limit reset keeps the
+// window and lowers it, which only a fresh reading from the usage endpoint can tell. resets_at moves by a few seconds between
+// responses, a new window by hours
+func points(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>) -> [(t: Double, pct: Double, end: Double)] {
+    var out: [(t: Double, pct: Double, end: Double)] = []
+    for s in all.sorted(by: { $0.ts < $1.ts }) {
+        guard let w = s[keyPath: key] else { continue }
+        guard let last = out.last else { out.append((s.ts, w.used_percentage, w.resets_at)); continue }
+        let same = abs(w.resets_at - last.end) <= 60
+        if same ? (s.fresh == true ? w.used_percentage == last.pct : w.used_percentage <= last.pct) : w.resets_at < last.end { continue }
+        out.append((s.ts, w.used_percentage, same ? last.end : w.resets_at))
+    }
+    return out
+}
+
 func window(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, now: Double) -> (pct: Int, resets_at: Double?)? {
-    let ws = all.compactMap { $0[keyPath: key] }
-    // resets_at moves by a few seconds between responses, a new window by hours
-    guard let newest = ws.map(\.resets_at).max(),
-          let w = ws.filter({ newest - $0.resets_at <= 60 }).max(by: { $0.used_percentage < $1.used_percentage }) else { return nil }
-    return w.resets_at <= now ? (0, nil) : (Int(w.used_percentage.rounded()), w.resets_at)
+    guard let p = points(all, key).last else { return nil }
+    return p.end <= now ? (0, nil) : (Int(p.pct.rounded()), p.end)
 }
 
 // the limit the menu bar shows; highest is the one closest to full
@@ -101,25 +112,26 @@ func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_a
     return ws.max { $0.pct < $1.pct }
 }
 
-// as pace() on the page: the rise over the span in % per hour, counted across a reset from each window's held value; before a window's
-// first snapshot nothing is known, so the span starts at the first snapshot it meets. And when the current window reaches 100 % at that
-// rate, if that comes before its reset
+// as pace() on the page: the rise over the span in % per hour, counted across a reset from each window's held value and past a limit
+// reset inside a window, which only lowers it; before a window's first snapshot nothing is known, so the span starts at the first
+// snapshot it meets. And when the current window reaches 100 % at that rate, if that comes before its reset
 func pace(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, span: Double, now: Double) -> (rate: Double, full: Double?)? {
-    let ws = all.compactMap { s in s[keyPath: key].map { (t: s.ts, w: $0) } }
-    guard let newest = ws.map(\.w.resets_at).max(), newest > now else { return nil }
-    // windows: resets_at within a minute is the same one
-    let ends = ws.map(\.w.resets_at).sorted().reduce(into: [Double]()) { if let l = $0.last, $1 - l <= 60 { return }; $0.append($1) }
-    let windows = ends.filter { $0 + 60 > now - span }.map { end in ws.filter { abs($0.w.resets_at - end) <= 60 } }
-    let since = max(now - span, windows.compactMap { $0.map(\.t).min() }.min() ?? now)
+    let pts = points(all, key)
+    guard let last = pts.last, last.end > now else { return nil }
+    let windows = Dictionary(grouping: pts, by: { $0.end }).values.filter { $0[0].end > now - span }
+    let since = max(now - span, windows.map { $0[0].t }.min() ?? now)
     guard since < now else { return nil }
-    let rise = windows.reduce(0.0) { sum, own in
-        let at = { (t: Double) in own.filter { $0.t <= t }.map(\.w.used_percentage).max() ?? 0 }
-        return sum + at(min(now, own[0].w.resets_at)) - at(since)
+    var rise = 0.0
+    for own in windows {
+        var prev = own.last(where: { $0.t <= since })?.pct ?? 0
+        for p in own where p.t > since && p.t <= min(now, p.end) {
+            rise += max(0, p.pct - prev)
+            prev = p.pct
+        }
     }
     let rate = rise / (now - since) * 3600
-    let pct = ws.filter { abs($0.w.resets_at - newest) <= 60 }.map(\.w.used_percentage).max() ?? 0
-    let full = rate > 0 ? now + (100 - pct) / rate * 3600 : nil
-    return (rate, full.flatMap { $0 < newest ? $0 : nil })
+    let full = rate > 0 ? now + (100 - last.pct) / rate * 3600 : nil
+    return (rate, full.flatMap { $0 < last.end ? $0 : nil })
 }
 
 func title(_ pct: Int?) -> String { pct.map { "\($0)%" } ?? "–" }

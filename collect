@@ -13,22 +13,25 @@ LASTF="${LASTF#S.push(}"
 LASTF="${LASTF%);}"
 
 { IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg lastf "$LASTF" --arg source "$ME" '
-  # resets_at moves by a few seconds between responses, a new window by hours
-  def newer($cur; $last):
+  # resets_at moves by a few seconds between responses, a new window by hours. A limit reset keeps the window and lowers
+  # the value, but a status line may repeat the old value of an idle session, so only a fresh reading from the usage endpoint lowers it
+  def newer($cur; $last; $fresh):
     $cur != null and (
       $last == null
       or $cur.resets_at > $last.resets_at + 60
-      or (($cur.resets_at - $last.resets_at | fabs) <= 60 and $cur.used_percentage > $last.used_percentage)
+      or (($cur.resets_at - $last.resets_at | fabs) <= 60
+          and ($cur.used_percentage > $last.used_percentage or ($fresh and $cur.used_percentage < $last.used_percentage)))
     );
   def shown: if . == null then "-" else (.used_percentage | round | tostring) end;
 
   def parse: try fromjson catch null | if type == "object" then . else null end;
   ($last | parse) as $l
   | ($lastf | parse) as $lf
+  | (.fresh == true) as $fresh
   | .rate_limits
   | select(.five_hour != null or .seven_day != null or .fable != null)
-  | (if newer(.five_hour; $l.five_hour) or newer(.seven_day; $l.seven_day) or newer(.fable; $lf.fable)
-     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) | tojson));"
+  | (if newer(.five_hour; $l.five_hour; $fresh) or newer(.seven_day; $l.seven_day; $fresh) or newer(.fable; $lf.fable; $fresh)
+     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) + (if $fresh then {fresh: true} else {} end) | tojson));"
      else "" end),
     "\(.five_hour | shown)\t\(.seven_day | shown)"
 ' 2>/dev/null)

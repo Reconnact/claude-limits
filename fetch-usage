@@ -14,7 +14,7 @@ printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" \
       def epoch: sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601;
       def window($pct; $reset): if $pct == null or $reset == null then null else {used_percentage: $pct, resets_at: ($reset | epoch)} end;
       (first(.limits[]? | select(.kind == "weekly_scoped" and .scope.model.display_name == "Fable")) // null) as $f
-      | {rate_limits: {
+      | {fresh: true, rate_limits: {
           five_hour: window(.five_hour.utilization; .five_hour.resets_at),
           seven_day: window(.seven_day.utilization; .seven_day.resets_at),
           fable: window($f.percent; $f.resets_at)

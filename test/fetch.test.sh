@@ -49,6 +49,7 @@ check "writes one line" "1" "$(wc -l < "$OUT" | tr -d ' ')"
 check "5 h window" "4 1790773199" "$(json | jq -r '.five_hour | "\(.used_percentage | round) \(.resets_at)"')"
 check "7 d window" "69 1790798399" "$(json | jq -r '.seven_day | "\(.used_percentage | round) \(.resets_at)"')"
 check "fable window" "76 1790798399" "$(json | jq -r '.fable | "\(.used_percentage) \(.resets_at)"')"
+check "marked fresh" "true" "$(json | jq .fresh)"
 check "token goes in on stdin" 'header = "Authorization: Bearer tok"' "$(cat "$TMP/curl-stdin")"
 check "token is not an argument" "" "$(grep -o tok "$TMP/curl-args")"
 
