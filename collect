@@ -11,8 +11,12 @@ LAST="${LAST%);}"
 LASTF="$(tail -r "$FILE" 2>/dev/null | grep -m1 '"fable"')"
 LASTF="${LASTF#S.push(}"
 LASTF="${LASTF%);}"
+# a status line may have written a fresh reading's numbers first, unmarked, and only a fresh line lowers a window (#26)
+LASTR="$(tail -r "$FILE" 2>/dev/null | grep -m1 '"fresh":true')"
+LASTR="${LASTR#S.push(}"
+LASTR="${LASTR%);}"
 
-{ IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg lastf "$LASTF" --arg source "$ME" '
+{ IFS= read -r LINE; IFS= read -r SHOWN; } < <(jq -r --arg last "$LAST" --arg lastf "$LASTF" --arg lastr "$LASTR" --arg source "$ME" '
   # resets_at moves by a few seconds between responses, a new window by hours. A limit reset keeps the window and lowers
   # the value, but a status line may repeat the old value of an idle session, so only a fresh reading from the usage endpoint lowers it
   def newer($cur; $last; $fresh):
@@ -22,15 +26,19 @@ LASTF="${LASTF%);}"
       or (($cur.resets_at - $last.resets_at | fabs) <= 60
           and ($cur.used_percentage > $last.used_percentage or ($fresh and $cur.used_percentage < $last.used_percentage)))
     );
+  def differs($cur; $last):
+    $cur != null and ($last == null or ($cur.resets_at - $last.resets_at | fabs) > 60 or $cur.used_percentage != $last.used_percentage);
   def shown: if . == null then "-" else (.used_percentage | round | tostring) end;
 
   def parse: try fromjson catch null | if type == "object" then . else null end;
   ($last | parse) as $l
   | ($lastf | parse) as $lf
+  | ($lastr | parse) as $lr
   | (.fresh == true) as $fresh
   | .rate_limits
   | select(.five_hour != null or .seven_day != null or .fable != null)
   | (if newer(.five_hour; $l.five_hour; $fresh) or newer(.seven_day; $l.seven_day; $fresh) or newer(.fable; $lf.fable; $fresh)
+        or ($fresh and (differs(.five_hour; $lr.five_hour) or differs(.seven_day; $lr.seven_day) or differs(.fable; $lr.fable)))
      then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) + (if $fresh then {fresh: true} else {} end) | tojson));"
      else "" end),
     "\(.five_hour | shown)\t\(.seven_day | shown)"
