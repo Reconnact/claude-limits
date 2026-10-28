@@ -82,6 +82,16 @@ input 30 1790000000 2 1790400000 | sed 's/^{/{"fresh":true,/' | run "$R" >/dev/n
 check "a lower reading from the usage endpoint appends" "2" "$(lines "$R")"
 check "a reading from the usage endpoint is marked fresh" "true 2" "$(tail -1 "$R/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq -r '"\(.fresh) \(.seven_day.used_percentage)"')"
 
+# a status line may write the numbers after a reset first, unmarked; the next fresh reading is still news against the last fresh one
+P="$TMP/peak"
+input 24 1790000000 100 1790400000 | sed 's/^{/{"fresh":true,/' | run "$P" >/dev/null
+input 25 1790000000 4 1790400000 | run "$P" >/dev/null
+input 25 1790000000 4 1790400000 | sed 's/^{/{"fresh":true,/' | run "$P" >/dev/null
+check "a fresh reading equal to a status line's last line appends" "3" "$(lines "$P")"
+check "that reading is marked fresh" "true 4" "$(tail -1 "$P/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq -r '"\(.fresh) \(.seven_day.used_percentage)"')"
+input 25 1790000001 4 1790400000 | sed 's/^{/{"fresh":true,/' | run "$P" >/dev/null
+check "a fresh reading equal to the last fresh one writes nothing" "3" "$(lines "$P")"
+
 # a reset time that moved by seconds is the same window
 input 25 1790000030 41.2 1790400000 | run "$D" >/dev/null
 check "reset time off by 30 s is the same window" "2" "$(lines "$D")"
