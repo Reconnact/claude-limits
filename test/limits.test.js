@@ -323,6 +323,24 @@ function row(hour, project, model, n = {}) {
   return { hour, project, model, input: 0, cache_write_5m: 0, cache_write_1h: 0, cache_read: 0, output: 0, ...n };
 }
 
+test('held: the resets of the newest answer, none past its use-by date', () => {
+  const S = [
+    { ts: T0, source: 'hw', resets: [{ kind: 'weekly', left: 1, ends_at: null }] },
+    { ts: T0 + 100, source: 'reconnact', resets: [{ kind: 'session', left: 2, ends_at: T0 + DAY }, { kind: 'full', left: 1, ends_at: T0 + 50 }] },
+    snap(T0 + 200, 'hw', [10, T0 + 5 * H], null),
+  ];
+  assert.deepEqual(Limits.held(S, T0 + 300), [{ kind: 'session', left: 2, ends_at: T0 + DAY }]);
+});
+
+test('held: no answer with resets, none', () => {
+  assert.deepEqual(Limits.held([snap(T0, 'hw', [10, T0 + 5 * H], null)], T0), []);
+});
+
+test('heldText: a line per kind, with its use-by date when it has one', () => {
+  assert.deepEqual(Limits.heldText([{ kind: 'session', left: 1, ends_at: 4098168000 }, { kind: 'fable', left: 2, ends_at: null }]),
+    ['1 five-hour reset left · use by 12 Nov', '2 Fable resets left']);
+});
+
 test('cost: each kind of token at its own price, per million', () => {
   const r = row(T0, '~/a', 'claude-opus-5-5', { input: 1e6, cache_write_5m: 1e6, cache_write_1h: 1e6, cache_read: 1e6, output: 1e6 });
   assert.equal(Limits.cost(r), 4 + 5 + 8 + 0.2 + 20);

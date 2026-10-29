@@ -154,6 +154,19 @@
     return `resets ${format === 'time' ? clock(t, now) : format === 'both' ? `${clock(t, now)} · ${left}` : left}`;
   }
 
+  // The limit resets held for later, from the newest answer of the usage endpoint; it may be old, so one past its use-by date is left out.
+  function held(S, now) {
+    const r = S.filter(s => s.resets).reduce((a, b) => (a && a.ts >= b.ts ? a : b), null);
+    return r ? r.resets.filter(g => !g.ends_at || g.ends_at > now) : [];
+  }
+
+  const RESET_KINDS = { session: 'five-hour', weekly: 'weekly', fable: 'Fable', full: 'full' };
+
+  function heldText(resets) {
+    const date = t => new Date(t * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return resets.map(g => `${g.left} ${RESET_KINDS[g.kind]} reset${g.left === 1 ? '' : 's'} left${g.ends_at ? ` · use by ${date(g.ends_at)}` : ''}`);
+  }
+
   function cost(r) {
     const p = PRICES[r.model.replace(/-\d{8}$/, '')];
     if (!p) return null;
@@ -231,6 +244,7 @@
       tick.style.left = w && !w.reset ? `${w.elapsed * 100}%` : '';
       el.querySelector('.pace').textContent = paceText(pace(S, key, now), now, key).replace(/(\d) /g, '$1\u00a0');
     }
+    doc.getElementById('held').textContent = heldText(held(S, now)).join('\n');
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now, split);
@@ -288,6 +302,6 @@
     doc.getElementById('asof').textContent = `as of ${at} · ${c.source}${age}`;
   }
 
-  root.Limits = { SPLITS, points, current, pace, paceText, projection, segments, clip, windows, path, until, resets, cost, projects, tokens, dollars, render };
+  root.Limits = { SPLITS, points, current, pace, paceText, projection, segments, clip, windows, path, until, resets, held, heldText, cost, projects, tokens, dollars, render };
   if (typeof module !== 'undefined') module.exports = root.Limits;
 })(typeof window !== 'undefined' ? window : globalThis);

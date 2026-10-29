@@ -21,7 +21,10 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   main { width: min(1120px, 100% - 32px); padding: clamp(24px, 6vw, 72px) 0; }
   main.empty .tiles, main.empty figure, main.empty nav { display: none; }
 
-  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 4vw, 56px); }
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: clamp(16px, 4vw, 56px); }
+  /* inside .tiles, so a code block that hides the tiles hides it too */
+  #held { grid-column: 1 / -1; margin: 1.2em 0 0; font-size: .85rem; color: var(--text-2); white-space: pre-line; }
+  #held:empty { display: none; }
   #five_hour { --line: var(--five_hour); }
   #seven_day { --line: var(--seven_day); }
   #fable { --line: var(--fable); }
@@ -98,6 +101,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
     <section id="five_hour"><h2>5 hours</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
     <section id="seven_day"><h2>7 days</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
     <section id="fable"><h2>Fable</h2><p class="pct"></p><p class="reset"></p><div class="bar"><i></i><b hidden></b></div><p class="pace"></p></section>
+    <p id="held"></p>
   </div>
   <div class="controls">
     <span id="asof"></span>
@@ -172,7 +176,7 @@ function refresh() {
   S = []; T = []; SOURCES = [];
   load(`${DIR}/sources.js`, () => {
     const names = [...new Set(SOURCES)];
-    const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-tokens.js`]);
+    const files = names.flatMap(name => [`${name}.js`, `${name}-checked.js`, `${name}-resets.js`, `${name}-tokens.js`]);
     let left = files.length;
     if (!left) draw();
     for (const file of files) load(`${DIR}/${file}`, () => { if (!--left) draw(); });
