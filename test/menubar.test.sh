@@ -74,6 +74,12 @@ printf 'S.push({"ts":%s,"source":"hw"});\n' $((NOW - 60)) > "$TMP/hw-checked.js"
 check "a recent check hides the age, keeps the values" "5 h 40 %|7 d 69 %" "$(menu)"
 rm "$TMP/hw-checked.js"
 
+# the newest answer's resets, one past its use-by date left out
+printf 'S.push({"ts":%s,"source":"reconnact","resets":[{"kind":"fable","left":1,"ends_at":null}]});\n' $((NOW - 7200)) > "$TMP/reconnact-resets.js"
+printf 'S.push({"ts":%s,"source":"hw","resets":[{"kind":"session","left":1,"ends_at":4098168000},{"kind":"weekly","left":2,"ends_at":null},{"kind":"full","left":1,"ends_at":%s}]});\n' $((NOW - 60)) $((NOW - 60)) > "$TMP/hw-resets.js"
+check "menu lists the resets held" "1 five-hour reset left · use by 12 Nov|2 weekly resets left" "$(./menubar/claude-limits-bar --menu | grep ' left' | paste -sd '|' -)"
+rm "$TMP/hw-resets.js" "$TMP/reconnact-resets.js"
+
 # a busy window: the pace of the last hour fills it before the reset
 { line $((NOW - 7000)) 12 $((NOW + 3 * 3600)); line $((NOW - 3500)) 30 $((NOW + 3 * 3600)); line $((NOW - 60)) 58 $((NOW + 3 * 3600)); } > "$TMP/hw.js"
 check "a pace that fills the window before its reset says when" "full" "$(./menubar/claude-limits-bar --menu | head -1 | cut -f3 | cut -c1-4)"

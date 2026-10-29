@@ -3,7 +3,8 @@ import SwiftUI
 import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
-struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window?; let fresh: Bool? }
+struct Held: Decodable { let kind: String; let left: Int; let ends_at: Double? }
+struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window?; let fresh: Bool?; let resets: [Held]? }
 
 let dir = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_DIR"] ?? "/Users/Shared/claude-limits"
 // every account's file; the old app's history and the index are no live value
@@ -212,6 +213,19 @@ func notify(_ title: String, _ body: String) {
     try? p.run()
 }
 
+// as held() and heldText() on the page
+func held(_ all: [Snapshot], now: Double) -> [String] {
+    guard let resets = all.filter({ $0.resets != nil }).max(by: { $0.ts < $1.ts })?.resets else { return [] }
+    let kinds = ["session": "five-hour", "weekly": "weekly", "fable": "Fable", "full": "full"]
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_GB")
+    f.dateFormat = "d MMM"
+    return resets.filter { ($0.ends_at ?? .infinity) > now }.map { g in
+        "\(g.left) \(kinds[g.kind] ?? g.kind) reset\(g.left == 1 ? "" : "s") left"
+            + (g.ends_at.map { " · use by \(f.string(from: Date(timeIntervalSince1970: $0)))" } ?? "")
+    }
+}
+
 func age(_ all: [Snapshot], now: Double) -> String? {
     guard let ts = all.map(\.ts).max(), now - ts > 30 * 60 else { return nil }
     let min = Int(now - ts) / 60
@@ -283,11 +297,13 @@ func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?
     var views: [NSView] = []
     let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     let rows = rows(all, s, now: now)
+    let held = held(all, now: now)
     let count = rows.map(\.fields.count).max() ?? 0
     let widths = (0..<count).map { i in rows.map { $0.fields.count > i ? ($0.fields[i] as NSString).size(withAttributes: [.font: font]).width : 0 }.max() ?? 0 }
     let bar = s.panelColumns.contains("bar") ? 40 + NSStackView().spacing : 0
-    // the last column ends at the panel's right edge, which the buttons set when the rows are narrower
-    let width = max(widths.reduce(0, +) + 16 * CGFloat(max(0, count - 1)), buttons.fittingSize.width - bar)
+    // the last column ends at the panel's right edge, which the buttons or a held reset set when the rows are narrower
+    let width = max(widths.reduce(0, +) + 16 * CGFloat(max(0, count - 1)), buttons.fittingSize.width - bar,
+                    (held.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) - bar)
     let style = NSMutableParagraphStyle()
     style.tabStops = []
     var x: CGFloat = 0
@@ -300,6 +316,12 @@ func panelView(_ all: [Snapshot], _ s: Settings, now: Double, target: AnyObject?
         text.maximumNumberOfLines = 1
         text.setContentCompressionResistancePriority(.required, for: .horizontal)
         views.append(NSStackView(views: (bar > 0 ? [NSImageView(image: meter(row.pct, row.color))] : []) + [text]))
+    }
+    for line in held {
+        let label = NSTextField(labelWithString: line)
+        label.font = font
+        label.textColor = .secondaryLabelColor
+        views.append(label)
     }
     if let age = age(all, now: now) {
         let label = NSTextField(labelWithString: age)
@@ -328,6 +350,7 @@ if CommandLine.arguments.contains("--title") {
 if CommandLine.arguments.contains("--menu") {
     let all = snapshots()
     rows(all, Settings.load(), now: now).forEach { print($0.fields.joined(separator: "\t")) }
+    held(all, now: now).forEach { print($0) }
     age(all, now: now).map { print($0) }
     exit(0)
 }
