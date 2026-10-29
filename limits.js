@@ -154,15 +154,17 @@
     return `resets ${format === 'time' ? clock(t, now) : format === 'both' ? `${clock(t, now)} · ${left}` : left}`;
   }
 
-  // The limit resets held for later, from the newest answer of the usage endpoint; it may be old, so one past its use-by date is left out.
+  // The limit resets held for later, from the newest answer of the usage endpoint, null before the first; it may be old, so one past its use-by date is left out.
   function held(S, now) {
     const r = S.filter(s => s.resets).reduce((a, b) => (a && a.ts >= b.ts ? a : b), null);
-    return r ? r.resets.filter(g => !g.ends_at || g.ends_at > now) : [];
+    return r ? r.resets.filter(g => !g.ends_at || g.ends_at > now) : null;
   }
 
   const RESET_KINDS = { session: 'five-hour', weekly: 'weekly', fable: 'Fable', full: 'full' };
 
   function heldText(resets) {
+    if (!resets) return [];
+    if (!resets.length) return ['No resets left'];
     const date = t => new Date(t * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     return resets.map(g => `${g.left} ${RESET_KINDS[g.kind]} reset${g.left === 1 ? '' : 's'} left${g.ends_at ? ` · use by ${date(g.ends_at)}` : ''}`);
   }

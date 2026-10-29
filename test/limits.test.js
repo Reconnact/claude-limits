@@ -332,13 +332,18 @@ test('held: the resets of the newest answer, none past its use-by date', () => {
   assert.deepEqual(Limits.held(S, T0 + 300), [{ kind: 'session', left: 2, ends_at: T0 + DAY }]);
 });
 
-test('held: no answer with resets, none', () => {
-  assert.deepEqual(Limits.held([snap(T0, 'hw', [10, T0 + 5 * H], null)], T0), []);
+test('held: before the first answer, unknown', () => {
+  assert.equal(Limits.held([snap(T0, 'hw', [10, T0 + 5 * H], null)], T0), null);
 });
 
 test('heldText: a line per kind, with its use-by date when it has one', () => {
   assert.deepEqual(Limits.heldText([{ kind: 'session', left: 1, ends_at: 4098168000 }, { kind: 'fable', left: 2, ends_at: null }]),
     ['1 five-hour reset left · use by 12 Nov', '2 Fable resets left']);
+});
+
+test('heldText: none held says so, unknown says nothing', () => {
+  assert.deepEqual(Limits.heldText([]), ['No resets left']);
+  assert.deepEqual(Limits.heldText(null), []);
 });
 
 test('cost: each kind of token at its own price, per million', () => {

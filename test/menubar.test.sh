@@ -78,6 +78,8 @@ rm "$TMP/hw-checked.js"
 printf 'S.push({"ts":%s,"source":"reconnact","resets":[{"kind":"fable","left":1,"ends_at":null}]});\n' $((NOW - 7200)) > "$TMP/reconnact-resets.js"
 printf 'S.push({"ts":%s,"source":"hw","resets":[{"kind":"session","left":1,"ends_at":4098168000},{"kind":"weekly","left":2,"ends_at":null},{"kind":"full","left":1,"ends_at":%s}]});\n' $((NOW - 60)) $((NOW - 60)) > "$TMP/hw-resets.js"
 check "menu lists the resets held" "1 five-hour reset left · use by 12 Nov|2 weekly resets left" "$(./menubar/claude-limits-bar --menu | grep ' left' | paste -sd '|' -)"
+printf 'S.push({"ts":%s,"source":"hw","resets":[]});\n' "$NOW" > "$TMP/hw-resets.js"
+check "none held, no line in the menu" "" "$(./menubar/claude-limits-bar --menu | grep -i reset)"
 rm "$TMP/hw-resets.js" "$TMP/reconnact-resets.js"
 
 # a busy window: the pace of the last hour fills it before the reset

@@ -213,7 +213,7 @@ func notify(_ title: String, _ body: String) {
     try? p.run()
 }
 
-// as held() and heldText() on the page
+// as held() and heldText() on the page, but none held shows nothing
 func held(_ all: [Snapshot], now: Double) -> [String] {
     guard let resets = all.filter({ $0.resets != nil }).max(by: { $0.ts < $1.ts })?.resets else { return [] }
     let kinds = ["session": "five-hour", "weekly": "weekly", "fable": "Fable", "full": "full"]

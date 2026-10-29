@@ -108,7 +108,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/claude-limits-server.pli
 ## The page
 
 - a tile per limit with the time to its reset
-- a line under the tiles names the limit resets Claude Code holds for you to use later, as `1 five-hour reset left · use by 12 Nov`, and shows nothing while you hold none; you use one in Claude Code
+- a line under the tiles names the limit resets Claude Code holds for you to use later, as `1 five-hour reset left · use by 12 Nov`, or `No resets left` once the usage endpoint has said so; you use one in Claude Code
 - a tick on each bar marks how much of the window has passed: a fill past it is faster than the window allows; under the bar, the pace of the last hour, of the last day for the weekly limits, and, when it fills the window before the reset, the time that happens
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
@@ -125,7 +125,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with a row per limit: its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first; the reset time too, when `panelColumns` says so. Under the rows, the limit resets you hold, as on the page. Below, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with a row per limit: its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first; the reset time too, when `panelColumns` says so. Under the rows, the limit resets you hold, as on the page; none held shows nothing. Below, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
