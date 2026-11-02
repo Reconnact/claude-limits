@@ -22,6 +22,7 @@ if (THEME === 'light' || THEME === 'dark') document.documentElement.style.colorS
   main.empty .tiles, main.empty figure, main.empty nav { display: none; }
 
   .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: clamp(16px, 4vw, 56px); }
+  .tiles:has(> section[hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* inside .tiles, so a code block that hides the tiles hides it too */
   #held { grid-column: 1 / -1; margin: 1.2em 0 0; font-size: .85rem; color: var(--text-2); white-space: pre-line; }
   #held:empty { display: none; }
