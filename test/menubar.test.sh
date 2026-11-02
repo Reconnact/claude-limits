@@ -155,4 +155,14 @@ check "alert when the pace fills the window before its reset" "5 h full" "$(aler
 settings '{"notify":false}'
 check "no alert when turned off" "" "$(alerts)"
 
+# an account without the 5 h limit: the weekly limit in its place, no 5 h row, no 5 h alert (#32)
+rm -f "$TMP"/*.js "$CLAUDE_LIMITS_SETTINGS"
+line $((NOW - 600)) 24 $((NOW + 3600)) > "$TMP/hw.js"
+printf 'S.push({"ts":%s,"source":"hw","five_hour":null,"seven_day":{"used_percentage":70,"resets_at":%s},"fresh":true,"no_five_hour":true});\n' $((NOW - 300)) $((NOW + 3600)) >> "$TMP/hw.js"
+line $((NOW - 60)) 25 $((NOW + 3600)) >> "$TMP/hw.js"
+check "no 5 h limit: the menu bar shows the weekly one" "70%" "$(bar)"
+check "no 5 h limit: no 5 h row" "7 d 70 %" "$(menu)"
+line $((NOW - 30)) 85 $((NOW + 3600)) >> "$TMP/hw.js"
+check "no 5 h limit: no 5 h alert" "" "$(alerts)"
+
 exit $FAILED

@@ -28,7 +28,9 @@ VERSION="${VERSION%% *}"
           five_hour: window(.five_hour.utilization; .five_hour.resets_at),
           seven_day: window(.seven_day.utilization; .seven_day.resets_at),
           fable: window($f.percent; $f.resets_at)
-        }},
+        }}
+        # five_hour is null only without the limit, when /usage drops its bar; window() makes a window without resets_at null too
+        + (if has("five_hour") and .five_hour == null then {no_five_hour: true} else {} end),
         {ts: (now | floor), source: $source, resets: ([.cedar_ember | objects | .grants[]? | select(.resets_left > 0 and .paused != true)
           | {kind: kind, left: .resets_left, ends_at: (.ends_at | try epoch catch null)}]
           | group_by(.kind) | map({kind: .[0].kind, left: (map(.left) | add), ends_at: (map(.ends_at | values) | min)}))}

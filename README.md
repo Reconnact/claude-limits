@@ -113,6 +113,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/claude-limits-server.pli
 - the buttons switch the chart between 5 hours, 1 day, 7 days, 30 days and everything (`?days=5h`, `1`, `7`, `30`, `all`)
 - a gap between snapshots is idle time: the value holds until its window resets, then 0
 - the chart frames each 5 h window up to the 7-day range and each weekly window beyond it, as high as its peak, with its usage filled in instead of a line; beyond 7 days the 5 h windows are left out
+- an account without a 5-hour limit, such as a verified Ultra one, gets no 5 hours tile, and the chart frames the weekly windows on every range
 - the chart runs on to the framed window's reset, a grey line marks now, and from there a dashed line shows where that pace takes each limit: to 100 % where it hits, else to the reset
 - "as of" is the last check, which is every Claude Code turn; after 30 minutes without one it shows its age in full contrast
 - a table under the chart lists the tokens and their API price for the chosen range, both accounts added up; a switch above it splits them by folder, agent, session, source or machine (`?by=folder`, `agent`, `session`, `source`, `machine`): Agent puts a subagent's tokens under its kind and the rest under the main session, Session names a session by its `/rename` title and otherwise by its folder, Source is the entrypoint of the run, `cli` for a terminal and `sdk-cli` for `claude -p`, Machine the host `tally` counted on
@@ -125,7 +126,7 @@ The page reloads itself every minute.
 
 ## The menu bar
 
-Shows the 5-hour limit as a pie, from the newest snapshot of any account. A click opens a panel under it with a row per limit: its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first; the reset time too, when `panelColumns` says so. Under the rows, the limit resets you hold, as on the page; none held shows nothing. Below, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
+Shows the 5-hour limit as a pie, from the newest snapshot of any account; on an account without it, the weekly limit, and the panel leaves out its row. A click opens a panel under it with a row per limit: its bar, its value and the pace as `12.6 %/h` (`26 %/d` for the weekly limits), or `full 00:19` when it fills the window first; the reset time too, when `panelColumns` says so. Under the rows, the limit resets you hold, as on the page; none held shows nothing. Below, `Open page` (⌘O), which shows the page in a window of its own, fresh on each open, and a gear (⌘,) for the settings; ⌘W or ⌘Q closes either window. `Quit` ends the item; Spotlight starts it again as `Claude limits`, from `~/Applications/Claude limits.app`. It starts at login and re-reads the files every minute. `make uninstall-menubar` removes it.
 
 ### Settings
 
@@ -175,7 +176,7 @@ A missing file or key, or a value not in the list, takes the default. With no ic
 { "five_hour": { "used_percentage": 24, "resets_at": 1790809200 }, "seven_day": { … }, "fable": { … }, "ts": 1790797815, "age": 42 }
 ```
 
-A limit past its reset is `0` with `resets_at` null, one never recorded is null; `ts` is the last check, `age` its seconds. `now --fresh` asks the usage endpoint first, for a machine whose status line has not run.
+A limit past its reset is `0` with `resets_at` null, one never recorded is null, and so is `five_hour` on an account without a 5-hour limit; `ts` is the last check, `age` its seconds. `now --fresh` asks the usage endpoint first, for a machine whose status line has not run.
 
 ## Updates
 
@@ -210,6 +211,7 @@ git -C ~/claude-limits reset --keep origin/main
 - the status line input has no Fable limit, so `collect` starts `fetch-usage` in the background at most every 5 minutes: it reads Claude Code's token from the Keychain and calls `api.anthropic.com/api/oauth/usage`, the call behind `/usage`
 - `fetch-usage` also asks for the limit resets you hold and overwrites `<user>-resets.js` with them on every answer; the endpoint lists them only to Claude Code's user agent with the installed version, so `fetch-usage` sends `claude-cli/<claude --version> (external, cli)`
 - a limit reset keeps the window's reset time and lowers its usage, but a status line can repeat an idle session's old numbers; so `fetch-usage` marks its readings `"fresh": true`, `collect` writes one that is lower too, or that differs from the last fresh one, since a status line may have written its numbers first, and only a fresh reading lowers a window on the page, in the menu bar and in `now`
+- the usage endpoint answers `"five_hour": null` only on an account without a 5-hour limit, so `fetch-usage` marks that reading `"no_five_hour": true`; the newest fresh reading decides, since a session started before the limit went keeps sending a 5-hour window to its status line
 - in the same background run, `tally` adds up the tokens in Claude Code's transcripts per hour, session, agent, entrypoint and model into `<user>-tokens.js`, reading only the transcripts changed since its last run; a session's folder is the one it started in, its title the last `/rename`, a subagent's kind comes from the `.meta.json` next to its transcript; none of that is documented, so a Claude Code release may change it; a row never shrinks, so the numbers outlive the 30 days Claude Code keeps transcripts; the one exception is the single recount after the update that changed which folder a session counts for, where only the transcripts stand for every hour they still cover
 - the API price is computed on the page from the prices in `limits.js`, fast mode at double; a model without a price is named under the table
 - once a day `collect` starts `update` in the background: with `.auto-update` in the clone, it fast-forwards the clone to its `origin` unless the clone has changes of its own, and rebuilds the menu bar item when its code changed

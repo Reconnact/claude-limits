@@ -4,7 +4,7 @@ import WebKit
 
 struct Window: Decodable { let used_percentage: Double; let resets_at: Double }
 struct Held: Decodable { let kind: String; let left: Int; let ends_at: Double? }
-struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window?; let fresh: Bool?; let resets: [Held]? }
+struct Snapshot: Decodable { let ts: Double; let five_hour: Window?; let seven_day: Window?; let fable: Window?; let fresh: Bool?; let no_five_hour: Bool?; let resets: [Held]? }
 
 let dir = ProcessInfo.processInfo.environment["CLAUDE_LIMITS_DIR"] ?? "/Users/Shared/claude-limits"
 // every account's file; the old app's history and the index are no live value
@@ -102,14 +102,21 @@ func points(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>) -> [(t: Double
     return out
 }
 
+// as on the page: the newest reading from the usage endpoint says whether the account has a 5 h limit; an old session's status line still sends one
+func hasFiveHour(_ all: [Snapshot]) -> Bool {
+    all.filter { $0.fresh == true }.max { $0.ts < $1.ts }?.no_five_hour != true
+}
+
 func window(_ all: [Snapshot], _ key: KeyPath<Snapshot, Window?>, now: Double) -> (pct: Int, resets_at: Double?)? {
+    if key == \Snapshot.five_hour && !hasFiveHour(all) { return nil }
     guard let p = points(all, key).last else { return nil }
     return p.end <= now ? (0, nil) : (Int(p.pct.rounded()), p.end)
 }
 
-// the limit the menu bar shows; highest is the one closest to full
+// the limit the menu bar shows, the weekly one for the 5 h limit on an account without it; highest is the one closest to full
 func shown(_ all: [Snapshot], _ s: Settings, now: Double) -> (pct: Int, resets_at: Double?)? {
-    let ws = limits.filter { s.menuBarLimit == "highest" || s.menuBarLimit == $0.id }.compactMap { window(all, $0.key, now: now) }
+    let id = s.menuBarLimit == "five_hour" && !hasFiveHour(all) ? "seven_day" : s.menuBarLimit
+    let ws = limits.filter { id == "highest" || id == $0.id }.compactMap { window(all, $0.key, now: now) }
     return ws.max { $0.pct < $1.pct }
 }
 

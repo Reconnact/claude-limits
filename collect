@@ -35,11 +35,14 @@ LASTR="${LASTR%);}"
   | ($lastf | parse) as $lf
   | ($lastr | parse) as $lr
   | (.fresh == true) as $fresh
+  | (.no_five_hour == true) as $none
   | .rate_limits
   | select(.five_hour != null or .seven_day != null or .fable != null)
   | (if newer(.five_hour; $l.five_hour; $fresh) or newer(.seven_day; $l.seven_day; $fresh) or newer(.fable; $lf.fable; $fresh)
-        or ($fresh and (differs(.five_hour; $lr.five_hour) or differs(.seven_day; $lr.seven_day) or differs(.fable; $lr.fable)))
-     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) + (if $fresh then {fresh: true} else {} end) | tojson));"
+        or ($fresh and (differs(.five_hour; $lr.five_hour) or differs(.seven_day; $lr.seven_day) or differs(.fable; $lr.fable)
+          or $none != ($lr.no_five_hour == true)))
+     then "S.push(\({ts: (now | floor), source: $source, five_hour, seven_day} + (if .fable then {fable} else {} end) + (if $fresh then {fresh: true} else {} end)
+       + (if $none then {no_five_hour: true} else {} end) | tojson));"
      else "" end),
     "\(.five_hour | shown)\t\(.seven_day | shown)"
 ' 2>/dev/null)

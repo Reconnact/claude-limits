@@ -1,6 +1,6 @@
 #!/bin/bash
-# Prints the newest snapshot as JSON for scripts: each limit as in the data files, 0 with no reset once it passed, null when never recorded;
-# ts is the last check, age its seconds.
+# Prints the newest snapshot as JSON for scripts: each limit as in the data files, 0 with no reset once it passed, null when never recorded,
+# and the 5 h limit null when the newest reading from the usage endpoint says the account has none; ts is the last check, age its seconds.
 # usage: now [--fresh]   --fresh asks the usage endpoint first, for a machine whose status line has not run
 DIR="${CLAUDE_LIMITS_DIR:-/Users/Shared/claude-limits}"
 [ "${1:-}" = --fresh ] && "$(dirname "$0")/fetch-usage"
@@ -14,5 +14,7 @@ grep -h '^S.push(' "$DIR"/*.js 2>/dev/null | sed 's/^S.push(//; s/);$//' | jq -s
         if . == null or $s.used_percentage > .used_percentage or $s.fresh then $s else . end) | del(.fresh)) as $w
     | if $w.resets_at <= $now then {used_percentage: 0, resets_at: null} else $w end end;
   (map(.ts) | max) as $ts
-  | {five_hour: window("five_hour"), seven_day: window("seven_day"), fable: window("fable"), ts: $ts, age: (if $ts then $now - $ts else null end)}
+  # a status line cannot tell, an old session keeps sending its window
+  | (map(select(.fresh == true)) | max_by(.ts) | .no_five_hour == true) as $none
+  | {five_hour: (if $none then null else window("five_hour") end), seven_day: window("seven_day"), fable: window("fable"), ts: $ts, age: (if $ts then $now - $ts else null end)}
 '

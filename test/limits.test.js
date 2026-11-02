@@ -116,6 +116,24 @@ test('current: a window that never came is null', () => {
   assert.equal(Limits.current(S, T0 + 10).seven_day, null);
 });
 
+test('current: no 5 h limit when the newest reading from the usage endpoint says so, whatever a status line sends after', () => {
+  const S = [
+    snap(T0 + 100, 'hw', [24, T0 + 5 * H], [69, T0 + 3 * DAY]),
+    { ...snap(T0 + 200, 'hw', null, [70, T0 + 3 * DAY]), fresh: true, no_five_hour: true },
+    snap(T0 + 300, 'hw', [25, T0 + 5 * H], [70, T0 + 3 * DAY]),
+  ];
+  const c = Limits.current(S, T0 + 400);
+  assert.equal(c.five_hour, null);
+  assert.equal(c.seven_day.pct, 70);
+  S.push({ ...snap(T0 + 500, 'hw', [3, T0 + 10 * H], [70, T0 + 3 * DAY]), fresh: true });
+  assert.equal(Limits.current(S, T0 + 600).five_hour.pct, 3);
+});
+
+test('current: a fresh reading with no 5 h window and no mark keeps the limit', () => {
+  const S = [snap(T0 + 100, 'hw', [40, T0 + 200], [69, T0 + 3 * DAY]), { ...snap(T0 + 300, 'hw', null, [69, T0 + 3 * DAY]), fresh: true }];
+  assert.deepEqual(Limits.current(S, T0 + 400).five_hour, { pct: 0, resets_at: null, reset: true });
+});
+
 test('current: the share of the window that has passed', () => {
   const S = [snap(T0 + H, 'hw', [20, T0 + 5 * H], [40, T0 + 7 * DAY])];
   const c = Limits.current(S, T0 + 2 * H);

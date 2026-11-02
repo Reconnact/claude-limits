@@ -50,4 +50,20 @@ check "a window past its reset is 0 with no reset" "0 null" "$(./now | jq -r '"\
 check "a window never recorded is null" "null" "$(./now | jq -r .fable)"
 check "--fresh without a token still answers" "69" "$(./now --fresh | jq -r .seven_day.used_percentage)"
 
+# an account without the 5 h limit: the newest fresh reading says so, an old session's status line does not (#32)
+fresh() {   # fresh <ts> <5h window or null> <7d pct> [mark]
+  printf 'S.push({"ts":%s,"source":"hw","five_hour":%s,"seven_day":{"used_percentage":%s,"resets_at":%s},"fresh":true%s});\n' "$1" "$2" "$3" $((NOW + 90000)) "${4:+,\"no_five_hour\":true}" >> "$TMP/hw.js"
+}
+rm "$TMP"/*.js
+line hw $((NOW - 600)) 24 $((NOW + 3600)) 69 $((NOW + 90000))
+fresh $((NOW - 300)) null 70 mark
+line hw $((NOW - 200)) 25 $((NOW + 3600)) 70 $((NOW + 90000))
+check "no 5 h limit: null, though a status line sent a window after" "null 70" "$(./now | jq -r '"\(.five_hour) \(.seven_day.used_percentage)"')"
+fresh $((NOW - 100)) '{"used_percentage":3,"resets_at":'$((NOW + 18000))'}' 70
+check "a newer fresh reading with a window brings it back" "3" "$(./now | jq -r .five_hour.used_percentage)"
+rm "$TMP"/*.js
+line hw $((NOW - 7200)) 40 $((NOW - 60)) 69 $((NOW + 90000))
+fresh $((NOW - 30)) null 69
+check "a fresh reading with no 5 h window and no mark keeps the limit" "0 null" "$(./now | jq -r '"\(.five_hour.used_percentage) \(.five_hour.resets_at)"')"
+
 exit $FAILED

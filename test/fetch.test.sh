@@ -58,6 +58,7 @@ check "5 h window" "4 1790773199" "$(json | jq -r '.five_hour | "\(.used_percent
 check "7 d window" "69 1790798399" "$(json | jq -r '.seven_day | "\(.used_percentage | round) \(.resets_at)"')"
 check "fable window" "76 1790798399" "$(json | jq -r '.fable | "\(.used_percentage) \(.resets_at)"')"
 check "marked fresh" "true" "$(json | jq .fresh)"
+check "a 5 h window, no mark" "false" "$(json | jq 'has("no_five_hour")')"
 check "token goes in on stdin" 'header = "Authorization: Bearer tok"' "$(cat "$TMP/curl-stdin")"
 check "token is not an argument" "" "$(grep -o tok "$TMP/curl-args")"
 check "asks for the resets as Claude Code of the installed version" "1 1" "$(grep -c 'cedar_ember=1' "$TMP/curl-args") $(grep -c 'claude-cli/9.9.9 (external, cli)' "$TMP/curl-args")"
@@ -73,6 +74,22 @@ jq 'del(.limits[1])' "$TMP/answer.json" > "$TMP/a" && mv "$TMP/a" "$TMP/answer.j
 ./fetch-usage
 check "no fable limit, no fable key" "false" "$(json | jq 'has("fable")')"
 check "no fable limit, 7 d still written" "69" "$(json | jq -r '.seven_day.used_percentage | round')"
+
+# a 5 h window not yet open has no reset time; only an account without the 5 h limit gets null (#32)
+cp "$TMP/answer.json" "$TMP/kept.json"
+rm "$OUT"
+jq '.five_hour = {utilization: 0, resets_at: null}' "$TMP/kept.json" > "$TMP/answer.json"
+./fetch-usage
+check "a 5 h window not yet open: no window, no mark" "null false" "$(json | jq -r '"\(.five_hour) \(has("no_five_hour"))"')"
+rm "$OUT"
+jq '.five_hour = null' "$TMP/kept.json" > "$TMP/answer.json"
+./fetch-usage
+check "no 5 h limit: marked, the 7 d window still written" "null true 69" "$(json | jq -r '"\(.five_hour) \(.no_five_hour) \(.seven_day.used_percentage | round)"')"
+rm "$OUT"
+jq 'del(.five_hour)' "$TMP/kept.json" > "$TMP/answer.json"
+./fetch-usage
+check "no five_hour key: no mark" "false" "$(json | jq 'has("no_five_hour")')"
+mv "$TMP/kept.json" "$TMP/answer.json"
 
 # an answer without the resets block holds none, so an old line goes
 jq 'del(.cedar_ember)' "$TMP/answer.json" > "$TMP/a" && mv "$TMP/a" "$TMP/answer.json"

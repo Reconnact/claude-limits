@@ -36,6 +36,8 @@
   function current(S, now) {
     if (!S.length) return null;
     const newest = S.reduce((a, b) => (b.ts > a.ts ? b : a));
+    // the newest reading from the usage endpoint says whether the account has a 5 h limit; an old session's status line still sends one
+    const fresh = S.filter(s => s.fresh).reduce((a, b) => (a && a.ts >= b.ts ? a : b), null);
     const win = key => {
       const p = points(S, key).pop();
       if (!p) return null;
@@ -43,7 +45,7 @@
       return { pct: p.pct, resets_at: p.resets_at, reset: false, elapsed: Math.min(1, Math.max(0, (now - (p.resets_at - LENGTH[key])) / LENGTH[key])) };
     };
     return {
-      five_hour: win('five_hour'),
+      five_hour: fresh && fresh.no_five_hour ? null : win('five_hour'),
       seven_day: win('seven_day'),
       fable: win('fable'),
       ts: newest.ts,
@@ -237,6 +239,7 @@
 
     for (const key of KEYS) {
       const el = doc.getElementById(key), w = c[key];
+      el.hidden = key === 'five_hour' && !w;
       el.querySelector('.pct').textContent = w ? `${Math.round(w.pct)} %` : '–';
       el.querySelector('.reset').textContent = !w ? '' : w.reset ? 'reset'
         : resets(w.resets_at, now, resetFormat).replace(/(\d) /g, '$1\u00a0');
@@ -250,9 +253,9 @@
 
     const from = days === 'all' ? S.reduce((t, s) => Math.min(t, s.ts), now - DAY) : now - days * DAY;
     renderProjects(doc, T, days === 'all' ? T.reduce((t, r) => Math.min(t, r.hour), from) : from, now, split);
-    const framed = days === 'all' || days > 7 ? 'seven_day' : 'five_hour';
-    // the chart runs on to the framed window's reset, so its projection has room; a line marks now
-    const to = Math.max(now, (c[framed] && c[framed].resets_at) || now);
+    const framed = days === 'all' || days > 7 || !c.five_hour ? 'seven_day' : 'five_hour';
+    // the chart runs on to the framed window's reset, at most one range ahead, so its projection has room; a line marks now
+    const to = Math.max(now, Math.min((c[framed] && c[framed].resets_at) || now, now + (days === 'all' ? Infinity : days * DAY)));
     const x = t => Math.round((t - from) / (to - from) * 7000) / 10;
     const nowLine = doc.getElementById('now');
     nowLine.setAttribute('x1', x(now));

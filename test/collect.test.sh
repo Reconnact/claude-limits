@@ -146,6 +146,18 @@ check "same fable after a status line snapshot writes nothing" "2" "$(lines "$D"
 fable 77 1790400000 | run "$D" >/dev/null
 check "higher fable appends" "3" "$(lines "$D")"
 
+# the usage endpoint's mark for an account without the 5 h limit (#32)
+nofive() {   # nofive <7d pct>
+  printf '{"fresh":true,"no_five_hour":true,"rate_limits":{"five_hour":null,"seven_day":{"used_percentage":%s,"resets_at":1790400000}}}' "$1"
+}
+D="$TMP/nofive"
+printf '{"fresh":true,"rate_limits":{"five_hour":{"used_percentage":4,"resets_at":1790000000},"seven_day":{"used_percentage":69,"resets_at":1790400000}}}' | run "$D" >/dev/null
+nofive 69 | run "$D" >/dev/null
+check "losing the 5 h limit is written, though the 7 d window is the same" "2" "$(lines "$D")"
+check "the line carries the mark" "true null" "$(tail -1 "$D/$(id -un).js" | sed 's/^S.push(//; s/);$//' | jq -r '"\(.no_five_hour) \(.five_hour)"')"
+nofive 69 | run "$D" >/dev/null
+check "the same reading again writes nothing" "2" "$(lines "$D")"
+
 # the fetch starts at most every 5 min
 D="$TMP/stamp"
 input 1 1790000000 2 1790400000 | run "$D" >/dev/null
